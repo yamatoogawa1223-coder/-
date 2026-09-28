@@ -21,9 +21,8 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
       - name: Build debug APK
+        # ubuntu-latest には Android SDK が入っている（ANDROID_HOME 設定済み）
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
