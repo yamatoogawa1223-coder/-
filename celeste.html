@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>サミットクライム</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0e1f;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  canvas{image-rendering:pixelated;image-rendering:crisp-edges;box-shadow:0 0 40px #000;background:#141a3c}
+  #touch{position:fixed;left:0;right:0;bottom:0;display:none;justify-content:space-between;align-items:flex-end;padding:14px;pointer-events:none}
+  .dpad{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(3,56px);gap:4px;pointer-events:auto}
+  .acts{display:flex;gap:10px;align-items:flex-end;pointer-events:auto}
+  .btn{border-radius:50%;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.5);color:#fff;font:bold 16px sans-serif;display:flex;align-items:center;justify-content:center}
+  .dpad .btn{border-radius:12px;font-size:22px}
+  .acts .btn{width:64px;height:64px}
+  .acts .btn.j{width:76px;height:76px}
+  .btn.on{background:rgba(255,255,255,.5)}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="game"></canvas></div>
+<div id="touch">
+  <div class="dpad">
+    <div></div><div class="btn" data-k="up">▲</div><div></div>
+    <div class="btn" data-k="left">◀</div><div></div><div class="btn" data-k="right">▶</div>
+    <div></div><div class="btn" data-k="down">▼</div><div></div>
+  </div>
+  <div class="acts">
+    <div class="btn" data-k="grab">掴む</div>
+    <div class="btn" data-k="dash">ダッシュ</div>
+    <div class="btn j" data-k="jump">ジャンプ</div>
+  </div>
+</div>
+<script>
+'use strict';
+// ================= 基本設定 =================
+const T = 8, W = 40, H = 22, VW = W * T, VH = H * T, S = 4;
+const cv = document.getElementById('game');
+cv.width = VW * S; cv.height = VH * S;
+const ctx = cv.getContext('2d');
+function fit() {
+  const s = Math.min(innerWidth / VW, innerHeight / VH);
+  cv.style.width = VW * s + 'px'; cv.style.height = VH * s + 'px';
+}
+addEventListener('resize', fit); fit();
+if ('ontouchstart' in window || matchMedia('(pointer:coarse)').matches) document.getElementById('touch').style.display = 'flex';
+
+// ================= サウンド =================
+let ac = null, muted = false;
+function beep(f, d, type, vol, slide) {
+  if (muted) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || 'square'; o.frequency.setValueAtTime(f, ac.currentTime);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), ac.currentTime + d);
+    g.gain.setValueAtTime(vol || .05, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + d);
+    o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + d);
+  } catch (e) {}
+}
+const sfx = {
+  jump: () => beep(300, .12, 'square', .04, 300),
+  wall: () => beep(260, .1, 'square', .04, 200),
+  dash: () => beep(500, .18, 'sawtooth', .05, -380),
+  die: () => beep(300, .4, 'sawtooth', .07, -260),
+  crystal: () => beep(700, .2, 'triangle', .06, 500),
+  berry: () => { beep(880, .1, 'square', .05); setTimeout(() => beep(1320, .18, 'square', .05), 90); },
+  clear: () => { beep(523, .12, 'square', .05); setTimeout(() => beep(784, .2, 'square', .05), 110); },
+  crumble: () => beep(120, .15, 'sawtooth', .04, -60),
+};
+
+// ================= 入力 =================
+const inp = { left: 0, right: 0, up: 0, down: 0, jump: 0, dash: 0, grab: 0, jumpP: 0, dashP: 0, anyP: 0 };
+const KEYMAP = {
+  ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down',
+  KeyZ: 'jump', KeyC: 'jump', Space: 'jump', KeyK: 'jump',
+  KeyX: 'dash', KeyJ: 'dash',
+  ShiftLeft: 'grab', ShiftRight: 'grab', KeyV: 'grab', KeyL: 'grab',
+};
+function press(k) {
+  if (!inp[k]) { if (k === 'jump') inp.jumpP = 1; if (k === 'dash') inp.dashP = 1; }
+  inp[k] = 1; inp.anyP = 1;
+}
+function release(k) { inp[k] = 0; }
+addEventListener('keydown', e => {
+  if (e.code === 'KeyM') { muted = !muted; return; }
+  if (e.code === 'KeyR' && mode === 'play') { killPlayer(); return; }
+  const k = KEYMAP[e.code];
+  if (k) { e.preventDefault(); if (!e.repeat) press(k); }
+  else if (!e.repeat) inp.anyP = 1;
+});
+addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) release(k); });
+addEventListener('blur', () => { for (const k of ['left', 'right', 'up', 'down', 'jump', 'dash', 'grab']) inp[k] = 0; });
+const ptrs = new Map();
+document.querySelectorAll('.btn').forEach(b => {
+  b.addEventListener('pointerdown', e => { e.preventDefault(); b.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, b); b.classList.add('on'); press(b.dataset.k); });
+  const up = e => { const bb = ptrs.get(e.pointerId); if (bb) { bb.classList.remove('on'); release(bb.dataset.k); ptrs.delete(e.pointerId); } };
+  b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
+});
+cv.addEventListener('pointerdown', () => { inp.anyP = 1; });
+
+// ================= ステージ =================
+// 座標はすべてタイル単位。b.box=壁 / spike=トゲ(向き U D L R) / crumble=崩れる床 / crystal=ダッシュ回復 / berry=イチゴ
+function roomBuilder() {
+  const b = { grid: new Uint8Array(W * H), spikes: [], crumbles: [], crystals: [], berries: [] };
+  b.box = (x, y, w, h) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (i >= 0 && i < W && j >= 0 && j < H) b.grid[j * W + i] = 1; };
+  b.carve = (x, y, w, h) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (i >= 0 && i < W && j >= 0 && j < H) b.grid[j * W + i] = 0; };
+  b.spike = (x, y, d, n) => { for (let i = 0; i < (n || 1); i++) b.spikes.push({ x: x + (d === 'U' || d === 'D' ? i : 0), y: y + (d === 'L' || d === 'R' ? i : 0), d }); };
+  b.crumble = (x, y) => b.crumbles.push({ tx: x, ty: y, s: 0, t: 0 });
+  b.crystal = (x, y) => b.crystals.push({ x: x * T, y: y * T, t: 0 });
+  b.berry = (x, y) => b.berries.push({ x: x * T, y: y * T, carry: false, done: false });
+  return b;
+}
+const ROOMS = [
+  { hint: '← → 移動　Z / C / Space ジャンプ（長押しで高く）', exit: 'right', start: [3, 19], build(b) {
+    b.box(0, 0, 40, 1); b.box(0, 20, 40, 2); b.box(39, 0, 1, 22); b.carve(39, 17, 1, 3);
+    b.box(14, 18, 3, 2); b.box(22, 17, 4, 3); b.carve(27, 20, 3, 2); b.box(34, 18, 3, 2);
+    b.berry(23, 14);
+  } },
+  { hint: 'トゲに注意。R でやり直し', exit: 'right', start: [3, 19], build(b) {
+    b.box(0, 0, 40, 1); b.box(0, 20, 40, 2); b.box(39, 0, 1, 22); b.carve(39, 17, 1, 3);
+    b.carve(10, 20, 5, 2); b.spike(10, 21, 'U', 5);
+    b.box(17, 18, 3, 2);
+    b.spike(22, 19, 'U', 4); b.box(31, 18, 3, 2);
+    b.berry(23, 15);
+  } },
+  { hint: 'X / J ダッシュ（8方向・空中で1回、着地で回復）', exit: 'right', start: [3, 19], build(b) {
+    b.box(0, 0, 40, 1); b.box(0, 20, 12, 2); b.box(21, 20, 19, 2); b.box(39, 0, 1, 22); b.carve(39, 17, 1, 3);
+    b.spike(12, 21, 'U', 9);
+    b.berry(16, 14);
+  } },
+  { hint: 'Shift / V で壁をつかんで登る（スタミナ制限あり）', exit: 'right', start: [3, 19], build(b) {
+    b.box(0, 0, 40, 1); b.box(0, 20, 13, 2); b.box(13, 8, 27, 14); b.carve(39, 5, 1, 3);
+    b.box(39, 0, 1, 5);
+    b.berry(20, 5);
+  } },
+  { hint: '壁ジャンプ：壁につかまりジャンプで反対の壁へ', exit: 'up', start: [18, 19], build(b) {
+    b.box(0, 0, 16, 22); b.box(22, 0, 18, 22); b.box(16, 20, 6, 2);
+    b.spike(16, 9, 'R', 2); b.spike(21, 13, 'L', 2); b.spike(16, 5, 'R', 2);
+    b.berry(18, 11);
+  } },
+  { hint: 'クリスタルに触れるとダッシュが回復', exit: 'right', start: [3, 17], build(b) {
+    b.box(0, 0, 40, 1); b.box(0, 18, 8, 4); b.box(19, 16, 3, 1); b.box(30, 13, 3, 1); b.box(37, 12, 3, 10);
+    b.carve(39, 9, 1, 3); b.box(39, 0, 1, 9);
+    b.spike(8, 21, 'U', 29);
+    b.crystal(12, 16); b.crystal(26, 12);
+    b.berry(20, 12);
+  } },
+  { hint: '崩れる床は立ち止まらずに走り抜けろ', exit: 'right', start: [3, 17], build(b) {
+    b.box(0, 0, 40, 1); b.box(0, 18, 6, 4); b.box(34, 18, 6, 4); b.box(39, 0, 1, 15);
+    for (let x = 6; x < 34; x++) if (x !== 14 && x !== 15 && x !== 24 && x !== 25) b.crumble(x, 18);
+    b.spike(6, 21, 'U', 28);
+    b.berry(20, 14);
+  } },
+  { hint: '頂上はもうすぐ！ 今までの技を全部使え', exit: 'up', start: [3, 19], build(b) {
+    b.box(0, 20, 40, 2); b.box(0, 0, 30, 1); b.box(39, 0, 1, 22);
+    b.spike(18, 19, 'U', 21);
+    b.box(14, 8, 4, 12);
+    b.box(22, 6, 3, 1); b.box(33, 3, 3, 1);
+    b.crystal(28, 4);
+    b.berry(23, 2);
+  } },
+];
+
+// ================= ゲーム状態 =================
+let mode = 'title'; // title | play | end
+let roomIdx = 0, R = null, roomCanvas = null;
+let deaths = 0, time = 0, berriesGot = 0, fade = 1, shake = 0, freeze = 0, flash = 0;
+let particles = [], snow = [];
+for (let i = 0; i < 60; i++) snow.push({ x: Math.random() * VW, y: Math.random() * VH, s: .5 + Math.random(), z: Math.random() });
+const p = { x: 0, y: 0, w: 8, h: 11, rx: 0, ry: 0, vx: 0, vy: 0, face: 1, dashes: 1, stamina: 110, coyote: 0, jbuf: 0, dbuf: 0, varT: 0, varV: 0,
+  forceT: 0, forceX: 0, state: 'n', dashT: 0, dashDir: { x: 1, y: 0 }, dashCd: 0, grabbing: false, noGrabT: 0, deadT: 0, hair: [], onGround: false };
+const berriesDone = {};
+
+function rectSolid(x, y, w, h) {
+  const x0 = Math.floor(x / T), x1 = Math.floor((x + w - 1) / T), y0 = Math.floor(y / T), y1 = Math.floor((y + h - 1) / T);
+  for (let j = y0; j <= y1; j++) for (let i = x0; i <= x1; i++) if (tileSolid(i, j)) return true;
+  for (const c of R.crumbles) {
+    if (c.s === 2) continue;
+    if (x < c.tx * T + T && x + w > c.tx * T && y < c.ty * T + T && y + h > c.ty * T) return true;
+  }
+  return false;
+}
+function tileSolid(i, j) {
+  if (i < 0) return true;
+  if (i >= W) i = W - 1;
+  if (j < 0 || j >= H) return false;
+  return R.grid[j * W + i] === 1;
+}
+const solid = (x, y) => rectSolid(x, y, p.w, p.h);
+const side = (d, yo) => rectSolid(d > 0 ? p.x + p.w : p.x - 1, p.y + yo, 1, 5);
+const approach = (v, t, a) => v < t ? Math.min(v + a, t) : Math.max(v - a, t);
+const lerp = (a, b, t) => a + (b - a) * t;
+
+function seedRand(n) { let s = n * 9301 + 49297; return () => (s = (s * 9301 + 49297) % 233280) / 233280; }
+
+function loadRoom(i) {
+  roomIdx = i;
+  const b = roomBuilder(); ROOMS[i].build(b); R = b; R.def = ROOMS[i];
+  for (const bb of R.berries) if (berriesDone[i + ':' + bb.x + ',' + bb.y]) bb.done = true;
+  renderRoom();
+  spawn();
+  fade = 1;
+}
+function spawn() {
+  const [sx, sy] = R.def.start;
+  Object.assign(p, { x: sx * T, y: sy * T - p.h + T, rx: 0, ry: 0, vx: 0, vy: 0, dashes: 1, stamina: 110, coyote: 0, jbuf: 0, dbuf: 0, varT: 0, forceT: 0,
+    state: 'n', dashT: 0, dashCd: 0, grabbing: false, noGrabT: 0, face: 1 });
+  p.hair = []; for (let i = 0; i < 4; i++) p.hair.push({ x: p.x + 4, y: p.y + 3 });
+  for (const c of R.crumbles) { c.s = 0; c.t = 0; }
+  for (const c of R.crystals) c.t = 0;
+  for (const bb of R.berries) bb.carry = false;
+}
+
+function renderRoom() {
+  const c = document.createElement('canvas'); c.width = VW * S; c.height = VH * S;
+  const g = c.getContext('2d'); g.scale(S, S);
+  const rnd = seedRand(roomIdx + 3);
+  const sol = (i, j) => { if (i < 0 || j < 0) return true; if (i >= W || j >= H) return true; return R.grid[j * W + i] === 1; };
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    if (!R.grid[j * W + i]) continue;
+    const x = i * T, y = j * T;
+    g.fillStyle = '#242c52'; g.fillRect(x, y, T, T);
+    for (let k = 0; k < 3; k++) { g.fillStyle = rnd() < .5 ? '#2c366a' : '#1d2444'; g.fillRect(x + Math.floor(rnd() * 7), y + Math.floor(rnd() * 7), 2, 1); }
+    if (!sol(i, j - 1)) { g.fillStyle = '#e6efff'; g.fillRect(x, y, T, 2); g.fillStyle = '#a9bdf0'; g.fillRect(x, y + 2, T, 1); if (rnd() < .4) g.fillRect(x + 2, y + 3, 3, 1); }
+    if (!sol(i - 1, j)) { g.fillStyle = '#4a5ba0'; g.fillRect(x, y, 1, T); }
+    if (!sol(i + 1, j)) { g.fillStyle = '#4a5ba0'; g.fillRect(x + T - 1, y, 1, T); }
+    if (!sol(i, j + 1)) { g.fillStyle = '#141a33'; g.fillRect(x, y + T - 1, T, 1); }
+  }
+  for (const s of R.spikes) {
+    const x = s.x * T, y = s.y * T;
+    g.fillStyle = '#ff6b8a';
+    for (let k = 0; k < 2; k++) {
+      g.beginPath();
+      const o = k * 4;
+      if (s.d === 'U') { g.moveTo(x + o, y + T); g.lineTo(x + o + 2, y + 3); g.lineTo(x + o + 4, y + T); }
+      else if (s.d === 'D') { g.moveTo(x + o, y); g.lineTo(x + o + 2, y + 5); g.lineTo(x + o + 4, y); }
+      else if (s.d === 'L') { g.moveTo(x + T, y + o); g.lineTo(x + 3, y + o + 2); g.lineTo(x + T, y + o + 4); }
+      else { g.moveTo(x, y + o); g.lineTo(x + 5, y + o + 2); g.lineTo(x, y + o + 4); }
+      g.fill();
+    }
+  }
+  roomCanvas = c;
+}
+
+// ================= プレイヤー処理 =================
+function moveX(dx) {
+  p.rx += dx; let m = Math.round(p.rx); p.rx -= m;
+  const st = Math.sign(m);
+  while (m) {
+    if (solid(p.x + st, p.y)) { p.vx = 0; p.rx = 0; return true; }
+    p.x += st; m -= st;
+  }
+  return false;
+}
+function moveY(dy) {
+  p.ry += dy; let m = Math.round(p.ry); p.ry -= m;
+  const st = Math.sign(m);
+  while (m) {
+    if (solid(p.x, p.y + st)) {
+      if (st < 0) { // 天井の角補正
+        let fixed = false;
+        for (let n = 1; n <= 4 && !fixed; n++) for (const s of [-1, 1]) if (!solid(p.x + s * n, p.y + st)) { p.x += s * n; fixed = true; break; }
+        if (fixed) continue;
+      }
+      p.vy = 0; p.ry = 0; p.varT = 0; return true;
+    }
+    p.y += st; m -= st;
+  }
+  return false;
+}
+function burst(x, y, n, col, sp) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = (sp || 60) * (.3 + Math.random());
+    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: .5 + Math.random() * .4, max: .9, c: col, s: 1 + (Math.random() < .3 ? 1 : 0) });
+  }
+}
+function dust(x, y, dir) {
+  for (let i = 0; i < 4; i++) particles.push({ x: x + Math.random() * 6 - 3, y, vx: -dir * (10 + Math.random() * 20), vy: -5 - Math.random() * 10, life: .3, max: .3, c: '#dfe9ff', s: 1 });
+}
+function killPlayer() {
+  if (p.state === 'dead') return;
+  p.state = 'dead'; p.deadT = .55; deaths++; shake = .25; sfx.die();
+  burst(p.x + 4, p.y + 5, 24, p.dashes > 0 ? '#ff4d5e' : '#4dd0ff', 90);
+  burst(p.x + 4, p.y + 5, 10, '#fff', 60);
+  flash = .08;
+}
+function nextRoom() {
+  sfx.clear();
+  for (const b of R.berries) if (b.carry) { b.done = true; berriesDone[roomIdx + ':' + b.x + ',' + b.y] = 1; berriesGot++; sfx.berry(); }
+  if (roomIdx + 1 >= ROOMS.length) { mode = 'end'; return; }
+  loadRoom(roomIdx + 1);
+}
+function tryJump(mx) {
+  if (p.jbuf <= 0) return false;
+  if (p.coyote > 0) {
+    p.jbuf = 0; p.coyote = 0;
+    if (p.state === 'dash' && p.dashDir.x !== 0) {
+      const d = Math.sign(p.dashDir.x); p.face = d;
+      if (p.dashDir.y > 0) { p.vx = d * 300; p.vy = -60; p.varT = 0; }
+      else { p.vx = d * 250; p.vy = -105; p.varT = .2; p.varV = -105; }
+      p.state = 'n';
+    } else { p.vx += mx * 40; p.vy = -105; p.varT = .2; p.varV = -105; }
+    dust(p.x + 4, p.y + p.h, p.face); sfx.jump();
+    return true;
+  }
+  const wl = solid(p.x - 3, p.y), wr = solid(p.x + 3, p.y);
+  if (wl || wr) {
+    let dir = wl ? 1 : -1; if (wl && wr) dir = -p.face;
+    p.jbuf = 0; p.coyote = 0;
+    if (p.grabbing) p.stamina -= 27.5;
+    p.state = 'n'; p.grabbing = false;
+    p.vx = dir * 130; p.vy = -105; p.varT = .2; p.varV = -105;
+    p.face = dir;
+    if (mx !== -dir) { p.forceT = .16; p.forceX = dir; }
+    burst(dir > 0 ? p.x : p.x + p.w, p.y + 6, 4, '#dfe9ff', 30); sfx.wall();
+    return true;
+  }
+  return false;
+}
+
+function step(dt) {
+  updateWorld(dt);
+  if (p.state === 'dead') { p.deadT -= dt; if (p.deadT <= 0) { spawn(); fade = .6; } return; }
+  time += dt;
+  const mx = inp.right - inp.left, my = inp.down - inp.up;
+  if (inp.jumpP) { p.jbuf = .1; inp.jumpP = 0; } else p.jbuf -= dt;
+  if (inp.dashP) { p.dbuf = .1; inp.dashP = 0; } else p.dbuf -= dt;
+  p.dashCd -= dt; p.coyote -= dt; p.forceT -= dt; p.varT -= dt; p.noGrabT -= dt;
+
+  const onGround = solid(p.x, p.y + 1);
+  if (onGround) {
+    if (!p.onGround && p.vy > 60) { dust(p.x + 4, p.y + p.h, 1); dust(p.x + 4, p.y + p.h, -1); }
+    p.coyote = .1; p.stamina = 110;
+    if (p.dashCd <= 0 && p.state !== 'dash') p.dashes = 1;
+  }
+  p.onGround = onGround;
+
+  // ダッシュ開始
+  if (p.dbuf > 0 && p.dashes > 0 && p.dashCd <= 0 && p.state !== 'dash') {
+    let dx = mx, dy = my; if (!dx && !dy) dx = p.face;
+    const l = Math.hypot(dx, dy); p.dashDir = { x: dx / l, y: dy / l };
+    p.dashes--; p.state = 'dash'; p.dashT = .15; p.dashCd = .2; p.dbuf = 0; p.grabbing = false; p.varT = 0;
+    p.vx = p.dashDir.x * 240; p.vy = p.dashDir.y * 240;
+    if (dx) p.face = Math.sign(dx);
+    freeze = .05; shake = .1; sfx.dash();
+    burst(p.x + 4, p.y + 5, 6, '#fff', 40);
+    return;
+  }
+
+  if (p.state === 'dash') {
+    p.dashT -= dt;
+    if (Math.random() < .8) particles.push({ x: p.x + 4, y: p.y + 5, vx: 0, vy: 0, life: .25, max: .25, c: p.dashes > 0 ? '#ff4d5e' : '#4dd0ff', s: 3, trail: 1 });
+    if (tryJump(mx)) { /* super/hyper */ }
+    else if (p.dashT <= 0) {
+      p.state = 'n';
+      if (p.dashDir.y <= 0) { p.vx = p.dashDir.x * 160; p.vy = p.dashDir.y * 160; if (p.dashDir.y < 0) p.vy *= .75; }
+      else { p.vx = p.dashDir.x * 160; p.vy = p.dashDir.y * 160; }
+    }
+    if (p.state === 'dash') { moveX(p.vx * dt); moveY(p.vy * dt); checkHazards(); return; }
+  }
+
+  if (mx && p.forceT <= 0) p.face = mx;
+  if (tryJump(mx)) { /* ジャンプした */ }
+
+  // 壁つかみ
+  const wasGrab = p.grabbing;
+  p.grabbing = false;
+  if (inp.grab && p.stamina > 0 && p.noGrabT <= 0 && p.forceT <= 0) {
+    if (side(p.face, 2)) p.grabbing = true;
+    else if (mx && side(mx, 2)) { p.face = mx; p.grabbing = true; }
+  }
+  if (p.grabbing) {
+    p.vx = 0;
+    if (my < 0) {
+      p.vy = -45; p.stamina -= 45.45 * dt;
+      if (!side(p.face, 0) && !side(p.face, 4) && !side(p.face, 2)) { /* handled by ledge check below */ }
+      // 崖の上に手が届いたら乗り上がる
+      if (!rectSolid(p.face > 0 ? p.x + p.w : p.x - 1, p.y - 1, 1, 5) ) {
+        p.vy = -105; p.forceT = .2; p.forceX = p.face; p.noGrabT = .25; p.grabbing = false;
+      }
+    } else if (my > 0) p.vy = 80;
+    else { p.vy = 0; p.stamina -= 10 * dt; }
+    if (p.grabbing && p.vy > 0 && onGround) { p.grabbing = false; p.vy = 0; }
+  } else {
+    // 横移動
+    const em = p.forceT > 0 ? p.forceX : mx;
+    const mult = onGround ? 1 : .65;
+    if (Math.abs(p.vx) > 90 && Math.sign(p.vx) === em) p.vx = approach(p.vx, 90 * em, 400 * mult * dt);
+    else p.vx = approach(p.vx, 90 * em, 1000 * mult * dt);
+    // 重力
+    if (!onGround || p.vy < 0) {
+      let mf = my > 0 ? 240 : 160;
+      if (!onGround && mx && mx === p.face && p.vy > 0 && side(mx, 2) && p.forceT <= 0) mf = 30;
+      let g = 900;
+      if (Math.abs(p.vy) <= 40 && inp.jump) g *= .5;
+      p.vy = approach(p.vy, mf, g * dt);
+    }
+    if (p.varT > 0) { if (inp.jump) p.vy = Math.min(p.vy, p.varV); else p.varT = 0; }
+  }
+  if (p.grabbing && !wasGrab) burst(p.face > 0 ? p.x + p.w : p.x, p.y + 6, 2, '#dfe9ff', 15);
+
+  moveX(p.vx * dt); moveY(p.vy * dt);
+  // 疲れたスタミナの表示用
+  if (p.stamina <= 0) p.grabbing = false;
+  checkHazards();
+}
+
+function checkHazards() {
+  for (const s of R.spikes) {
+    let hx, hy, hw, hh; const x = s.x * T, y = s.y * T;
+    if (s.d === 'U') { hx = x + 1; hy = y + 4; hw = 6; hh = 4; }
+    else if (s.d === 'D') { hx = x + 1; hy = y; hw = 6; hh = 4; }
+    else if (s.d === 'L') { hx = x + 4; hy = y + 1; hw = 4; hh = 6; }
+    else { hx = x; hy = y + 1; hw = 4; hh = 6; }
+    if (p.x < hx + hw && p.x + p.w > hx && p.y < hy + hh && p.y + p.h > hy) { killPlayer(); return; }
+  }
+  if (p.y > VH + 6) { killPlayer(); return; }
+  const ex = R.def.exit;
+  if ((ex === 'right' && p.x > VW - 2) || (ex === 'up' && p.y < -6)) nextRoom();
+}
+
+function updateWorld(dt) {
+  // 崩れる床
+  for (const c of R.crumbles) {
+    if (c.s === 0) {
+      if (p.state !== 'dead' && p.x + p.w > c.tx * T && p.x < c.tx * T + T && Math.abs(p.y + p.h - c.ty * T) <= 1 && p.vy >= 0) { c.s = 1; c.t = .4; sfx.crumble(); }
+    } else if (c.s === 1) {
+      c.t -= dt;
+      if (c.t <= 0) { c.s = 2; c.t = 2.5; burst(c.tx * T + 4, c.ty * T + 4, 6, '#8a94c8', 30); }
+    } else {
+      c.t -= dt;
+      if (c.t <= 0 && !(p.x < c.tx * T + T && p.x + p.w > c.tx * T && p.y < c.ty * T + T && p.y + p.h > c.ty * T)) c.s = 0;
+    }
+  }
+  // クリスタル・イチゴ
+  for (const c of R.crystals) {
+    if (c.t > 0) { c.t -= dt; continue; }
+    if (p.state !== 'dead' && p.dashes < 1 && p.x < c.x + 10 && p.x + p.w > c.x - 2 && p.y < c.y + 10 && p.y + p.h > c.y - 2) {
+      p.dashes = 1; c.t = 2.5; sfx.crystal(); burst(c.x + 4, c.y + 4, 8, '#7dffb0', 50);
+    }
+  }
+  for (const b of R.berries) {
+    if (b.done) continue;
+    if (!b.carry) {
+      if (p.state !== 'dead' && p.x < b.x + 9 && p.x + p.w > b.x - 1 && p.y < b.y + 9 && p.y + p.h > b.y - 1) { b.carry = true; b.fx = b.x; b.fy = b.y; sfx.crystal(); }
+    } else {
+      b.fx = lerp(b.fx, p.x - p.face * 6, .15); b.fy = lerp(b.fy, p.y - 2, .15);
+      if (p.state === 'dead') { b.carry = false; }
+    }
+  }
+  // 髪
+  if (p.state !== 'dead') {
+    let tx = p.x + 4 - p.face * 1, ty = p.y + 3;
+    p.hair[0].x = tx; p.hair[0].y = ty;
+    for (let i = 1; i < p.hair.length; i++) {
+      const h = p.hair[i], pr = p.hair[i - 1];
+      h.x = lerp(h.x, pr.x - p.face * 2.5, .45); h.y = lerp(h.y, pr.y + 1.8, .45);
+    }
+  }
+  // パーティクル
+  for (const q of particles) { q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt; q.vx *= .96; q.vy *= .96; }
+  particles = particles.filter(q => q.life > 0);
+  for (const s of snow) { s.y += (14 + s.z * 20) * dt; s.x += (10 + s.z * 12) * dt; if (s.y > VH) { s.y = -2; s.x = Math.random() * VW; } if (s.x > VW) s.x -= VW; }
+  shake = Math.max(0, shake - dt); fade = Math.max(0, fade - dt * 2.5); flash = Math.max(0, flash - dt);
+}
+
+// ================= 描画 =================
+const lerpCol = (a, b, t) => { const pa = [1, 3, 5].map(i => parseInt(a.substr(i, 2), 16)), pb = [1, 3, 5].map(i => parseInt(b.substr(i, 2), 16)); return '#' + pa.map((v, i) => Math.round(lerp(v, pb[i], t)).toString(16).padStart(2, '0')).join(''); };
+function drawBg() {
+  const t = roomIdx / (ROOMS.length - 1);
+  const top = lerpCol('#111737', '#2f5aa8', t), bot = lerpCol('#32306a', '#ffa66b', t);
+  const g = ctx.createLinearGradient(0, 0, 0, VH); g.addColorStop(0, top); g.addColorStop(1, bot);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+  // 星
+  const rnd = seedRand(7); ctx.fillStyle = '#fff';
+  for (let i = 0; i < 40; i++) { const x = rnd() * VW, y = rnd() * VH * .55; if (Math.sin(time * 2 + i) > -.4 && t < .85) { ctx.globalAlpha = (1 - t) * .8; ctx.fillRect(Math.floor(x), Math.floor(y), 1, 1); } }
+  ctx.globalAlpha = 1;
+  // 山
+  const layers = [[lerpCol('#3b3f86', '#d98a72', t), 90, .012, 30], [lerpCol('#2a2d66', '#a9647a', t), 120, .02, 26]];
+  for (const [c, base, f, amp] of layers) {
+    ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(0, VH);
+    for (let x = 0; x <= VW; x += 4) ctx.lineTo(x, base + Math.abs(Math.sin(x * f + base)) * -amp + amp * .3 + Math.sin(x * f * 3.1) * 4);
+    ctx.lineTo(VW, VH); ctx.fill();
+  }
+}
+function text(str, x, y, size, col, align) {
+  ctx.font = 'bold ' + size + 'px "Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif';
+  ctx.textAlign = align || 'left'; ctx.textBaseline = 'top';
+  ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(str, x + .6, y + .6);
+  ctx.fillStyle = col || '#fff'; ctx.fillText(str, x, y);
+}
+function drawPlayer() {
+  if (p.state === 'dead') return;
+  const x = Math.round(p.x), y = Math.round(p.y);
+  const hc = p.dashes > 0 ? '#ff4d5e' : '#4dd0ff';
+  for (let i = p.hair.length - 1; i >= 1; i--) { const h = p.hair[i], r = 3 - i * .55; ctx.fillStyle = hc; ctx.fillRect(Math.round(h.x - r), Math.round(h.y - r), Math.ceil(r * 2), Math.ceil(r * 2)); }
+  const f = p.face;
+  ctx.fillStyle = '#5a3a2a'; ctx.fillRect(x + 1, y + 9, 2, 2); ctx.fillRect(x + 5, y + 9, 2, 2);
+  ctx.fillStyle = '#3a6fd8'; ctx.fillRect(x + 1, y + 6, 6, 4);
+  ctx.fillStyle = '#2650a8'; ctx.fillRect(x + 1, y + 9, 6, 1);
+  ctx.fillStyle = '#ffd0a8'; ctx.fillRect(x + 1, y + 2, 6, 4);
+  ctx.fillStyle = hc; ctx.fillRect(x, y - 1, 8, 4); ctx.fillRect(f > 0 ? x : x + 5, y + 3, 3, 1);
+  ctx.fillStyle = '#fff'; ctx.fillRect(x + (f > 0 ? 4 : 2), y + 4, 2, 1);
+  ctx.fillStyle = '#222'; ctx.fillRect(x + (f > 0 ? 5 : 2), y + 4, 1, 1);
+  if (p.grabbing) { ctx.fillStyle = '#ffd0a8'; ctx.fillRect(f > 0 ? x + 6 : x, y + 3, 2, 2); }
+  if (p.stamina < 40 && p.grabbing && Math.floor(time * 12) % 2) { ctx.fillStyle = '#ffe14d'; ctx.fillRect(x + 1, y - 4, 6, 1); }
+}
+function draw() {
+  ctx.setTransform(S, 0, 0, S, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  drawBg();
+  if (mode === 'title') { drawTitle(); return; }
+  ctx.save();
+  if (shake > 0) ctx.translate(Math.round((Math.random() - .5) * shake * 16), Math.round((Math.random() - .5) * shake * 16));
+  ctx.drawImage(roomCanvas, 0, 0, VW, VH);
+  for (const c of R.crumbles) {
+    if (c.s === 2) continue;
+    const x = c.tx * T + (c.s === 1 ? Math.round(Math.sin(time * 60) * .8) : 0), y = c.ty * T;
+    ctx.fillStyle = c.s === 1 ? '#8a6a7a' : '#6d5a86'; ctx.fillRect(x, y, T, T);
+    ctx.fillStyle = '#a58cc4'; ctx.fillRect(x, y, T, 2);
+    ctx.fillStyle = '#4a3d63'; ctx.fillRect(x + 1, y + 4, 3, 1); ctx.fillRect(x + 4, y + 6, 3, 1); ctx.fillRect(x, y + 7, T, 1);
+  }
+  for (const c of R.crystals) {
+    const x = c.x, y = c.y + Math.round(Math.sin(time * 4 + c.x) * 1);
+    if (c.t > 0) { ctx.strokeStyle = 'rgba(125,255,176,.35)'; ctx.strokeRect(x + 1.5, y + 1.5, 5, 5); continue; }
+    ctx.fillStyle = '#7dffb0'; ctx.beginPath(); ctx.moveTo(x + 4, y - 1); ctx.lineTo(x + 9, y + 4); ctx.lineTo(x + 4, y + 9); ctx.lineTo(x - 1, y + 4); ctx.fill();
+    ctx.fillStyle = '#d6ffe6'; ctx.fillRect(x + 3, y + 2, 2, 2);
+  }
+  for (const b of R.berries) {
+    if (b.done) continue;
+    const x = b.carry ? b.fx : b.x, y = (b.carry ? b.fy : b.y) + (b.carry ? 0 : Math.round(Math.sin(time * 3 + b.x) * 1.5));
+    ctx.fillStyle = '#ff3b5c'; ctx.fillRect(Math.round(x) + 1, Math.round(y) + 2, 6, 5); ctx.fillRect(Math.round(x) + 2, Math.round(y) + 7, 4, 1);
+    ctx.fillStyle = '#4ade80'; ctx.fillRect(Math.round(x) + 2, Math.round(y), 4, 2);
+    ctx.fillStyle = '#ffd0d8'; ctx.fillRect(Math.round(x) + 2, Math.round(y) + 3, 1, 1); ctx.fillRect(Math.round(x) + 5, Math.round(y) + 5, 1, 1);
+  }
+  drawPlayer();
+  for (const q of particles) {
+    ctx.globalAlpha = Math.max(0, q.life / q.max); ctx.fillStyle = q.c;
+    const s = q.trail ? q.s * (q.life / q.max) : q.s; ctx.fillRect(Math.round(q.x - s / 2), Math.round(q.y - s / 2), Math.max(1, Math.round(s)), Math.max(1, Math.round(s)));
+  }
+  ctx.globalAlpha = .7; ctx.fillStyle = '#fff';
+  for (const s of snow) ctx.fillRect(Math.floor(s.x), Math.floor(s.y), s.z > .5 ? 2 : 1, 1);
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  // HUD
+  text('ROOM ' + (roomIdx + 1) + '/' + ROOMS.length, 4, 3, 6);
+  const tm = Math.floor(time), ts = String(Math.floor(tm / 60)).padStart(2, '0') + ':' + String(tm % 60).padStart(2, '0');
+  text('🍓 ' + berriesGot + '   ☠ ' + deaths + '   ' + ts, VW - 4, 3, 6, '#fff', 'right');
+  if (roomIdx < 6 || time < 1) { /* placeholder */ }
+  if (R.def.hint) text(R.def.hint, VW / 2, VH - 10, 6, 'rgba(255,255,255,.8)', 'center');
+  if (p.grabbing || p.stamina < 110 && !p.onGround) {
+    if (p.stamina < 110) { const w = 12 * Math.max(0, p.stamina) / 110; ctx.fillStyle = p.stamina < 40 ? '#ffe14d' : '#7dffb0'; ctx.fillRect(Math.round(p.x - 2), Math.round(p.y - 7), Math.round(w), 1); }
+  }
+  if (flash > 0) { ctx.fillStyle = 'rgba(255,255,255,' + flash * 6 + ')'; ctx.fillRect(0, 0, VW, VH); }
+  if (fade > 0) { ctx.fillStyle = 'rgba(0,0,0,' + Math.min(1, fade) + ')'; ctx.fillRect(0, 0, VW, VH); }
+  if (mode === 'end') drawEnd();
+}
+function drawTitle() {
+  for (const s of snow) { ctx.globalAlpha = .7; ctx.fillStyle = '#fff'; ctx.fillRect(Math.floor(s.x), Math.floor(s.y), s.z > .5 ? 2 : 1, 1); }
+  ctx.globalAlpha = 1;
+  text('SUMMIT CLIMB', VW / 2, 34, 20, '#fff', 'center');
+  text('サミットクライム ― 山頂をめざせ', VW / 2, 60, 8, '#ffd9c2', 'center');
+  const y0 = 86;
+  ['← → ↑ ↓　移動 / ダッシュの向き', 'Z / C / Space　ジャンプ（壁ジャンプもできる）', 'X / J　ダッシュ（8方向）', 'Shift / V　壁をつかんで登る', 'R　やり直し　　M　音のオン・オフ'].forEach((l, i) => text(l, VW / 2, y0 + i * 11, 6.5, '#fff', 'center'));
+  if (Math.floor(performance.now() / 500) % 2) text('Z か タップ でスタート', VW / 2, 150, 8, '#7dffb0', 'center');
+  // 装飾キャラ
+  const x = VW / 2 - 4, y = 22; void x; void y;
+}
+function drawEnd() {
+  ctx.fillStyle = 'rgba(10,14,40,.7)'; ctx.fillRect(0, 0, VW, VH);
+  text('頂上に到達！', VW / 2, 40, 18, '#ffe14d', 'center');
+  const tm = Math.floor(time), ts = String(Math.floor(tm / 60)).padStart(2, '0') + ':' + String(tm % 60).padStart(2, '0');
+  const total = ROOMS.reduce((a, r) => { const b = roomBuilder(); r.build(b); return a + b.berries.length; }, 0);
+  text('🍓 ' + berriesGot + ' / ' + total, VW / 2, 78, 10, '#fff', 'center');
+  text('☠ ' + deaths + ' 回　　⏱ ' + ts, VW / 2, 96, 10, '#fff', 'center');
+  if (Math.floor(performance.now() / 500) % 2) text('Z か タップ でもう一度', VW / 2, 135, 8, '#7dffb0', 'center');
+}
+
+// ================= メインループ =================
+function tick() {
+  if (inp.anyP) {
+    if (mode === 'title' && (inp.jumpP || inp.dashP || inp.anyP)) { mode = 'play'; deaths = 0; time = 0; berriesGot = 0; for (const k in berriesDone) delete berriesDone[k]; loadRoom(0); inp.jumpP = 0; inp.dashP = 0; try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume(); } catch (e) {} }
+    else if (mode === 'end') { mode = 'title'; inp.jumpP = 0; inp.dashP = 0; }
+    inp.anyP = 0;
+  }
+}
+let last = performance.now(), acc = 0;
+function frame(now) {
+  const dt = Math.min(.1, (now - last) / 1000); last = now; acc += dt;
+  tick();
+  let n = 0;
+  while (acc >= 1 / 60 && n++ < 5) {
+    acc -= 1 / 60;
+    if (mode === 'play') {
+      if (freeze > 0) { freeze -= 1 / 60; continue; }
+      step(1 / 60);
+    } else if (mode === 'title' || mode === 'end') {
+      for (const s of snow) { s.y += (14 + s.z * 20) / 60; s.x += (10 + s.z * 12) / 60; if (s.y > VH) { s.y = -2; s.x = Math.random() * VW; } if (s.x > VW) s.x -= VW; }
+    }
+  }
+  if (mode === 'play' || mode === 'end') { if (!R) loadRoom(0); }
+  draw();
+  requestAnimationFrame(frame);
+}
+loadRoom(0); mode = 'title';
+requestAnimationFrame(frame);
+
+// テスト用フック
+window.__G = { step, inp, p, loadRoom, get mode() { return mode; }, set mode(v) { mode = v; }, get roomIdx() { return roomIdx; }, get R() { return R; } };
+</script>
+</body>
+</html>
