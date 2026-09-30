@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>脱出ゲーム：閉ざされた書斎</title>
+<style>
+  *{box-sizing:border-box;user-select:none;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:#111;color:#eee;font-family:"Hiragino Sans","Meiryo",sans-serif;display:flex;flex-direction:column;align-items:center;min-height:100vh}
+  h1{font-size:18px;margin:10px 0 6px;letter-spacing:2px}
+  #game{width:min(96vw,720px)}
+  #room{position:relative;width:100%;aspect-ratio:16/10;border:3px solid #444;border-radius:6px;overflow:hidden;transition:background .3s}
+  .wall{position:absolute;inset:0;display:none}
+  .wall.active{display:block}
+  .floor{position:absolute;left:0;right:0;bottom:0;height:22%;background:linear-gradient(#5a3b22,#3d2614)}
+  .hs{position:absolute;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:clamp(10px,2vw,14px);text-align:center;transition:filter .15s}
+  .hs:hover{filter:brightness(1.3);outline:2px dashed #ffd76a55}
+  .nav{position:absolute;top:50%;transform:translateY(-50%);background:#000a;border:1px solid #888;color:#fff;font-size:26px;width:38px;height:60px;cursor:pointer;z-index:5;border-radius:6px}
+  #left{left:4px}#right{right:4px}
+  #msg{margin-top:8px;min-height:52px;background:#222;border:2px solid #555;border-radius:6px;padding:8px 12px;font-size:14px;line-height:1.5}
+  #inv{margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  #inv .lbl{font-size:12px;color:#aaa}
+  .slot{width:56px;height:56px;border:2px solid #555;background:#1c1c1c;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:24px;cursor:pointer}
+  .slot small{font-size:10px}
+  .slot.sel{border-color:#ffd76a;background:#3a3216}
+  #lock{position:absolute;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:10}
+  #lock .box{background:#2a2a2a;border:3px solid #999;border-radius:10px;padding:16px;text-align:center}
+  .digits{display:flex;gap:8px;justify-content:center;margin:12px 0}
+  .dg{width:48px;background:#000;border:2px solid #777;border-radius:6px;font-size:28px;padding:4px 0;color:#7fff7f;font-family:monospace}
+  .dg button{display:block;width:100%;background:#444;color:#fff;border:0;cursor:pointer;font-size:14px;padding:2px}
+  .btn{background:#ffd76a;color:#000;border:0;border-radius:6px;padding:8px 16px;font-size:14px;cursor:pointer;margin:0 4px}
+  .btn.g{background:#666;color:#fff}
+  #ending{position:absolute;inset:0;background:#fff;color:#222;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:20;text-align:center;padding:20px}
+  #ending h2{font-size:28px;margin:0 0 8px}
+  #dark{position:absolute;inset:0;background:#000;display:none;z-index:8}
+</style>
+</head>
+<body>
+<h1>🔒 閉ざされた書斎</h1>
+<div id="game">
+  <div id="room">
+    <button class="nav" id="left">◀</button>
+    <button class="nav" id="right">▶</button>
+
+    <!-- 0: 北（ドア） -->
+    <div class="wall active" id="w0" style="background:#7a6a55">
+      <div class="floor"></div>
+      <div class="hs" id="door" style="left:36%;top:12%;width:28%;height:70%;background:#4a2f1a;border:6px solid #2a1808;border-radius:8px 8px 0 0">🚪 ドア<br>🔢</div>
+      <div class="hs" id="painting" style="left:6%;top:16%;width:20%;height:32%;background:#2e5a7a;border:6px solid #a8842c">🖼️ 絵画</div>
+      <div class="hs" id="plant" style="left:76%;top:52%;width:12%;height:30%;background:none;font-size:40px">🪴</div>
+    </div>
+
+    <!-- 1: 東（本棚） -->
+    <div class="wall" id="w1" style="background:#6b5a48">
+      <div class="floor"></div>
+      <div class="hs" id="book" style="left:8%;top:10%;width:46%;height:52%;background:#3b2412;border:6px solid #23140a;font-size:34px">📚 本棚</div>
+      <div class="hs" id="cabinet" style="left:62%;top:30%;width:28%;height:52%;background:#111;border:6px solid #333;color:#666">🗄️ 暗い戸棚</div>
+    </div>
+
+    <!-- 2: 南（机） -->
+    <div class="wall" id="w2" style="background:#6a5d4d">
+      <div class="floor"></div>
+      <div class="hs" id="clock" style="left:42%;top:8%;width:16%;height:24%;background:#eee;border:5px solid #333;border-radius:50%;color:#000;font-size:28px">🕓</div>
+      <div class="hs" id="desk" style="left:15%;top:44%;width:70%;height:38%;background:#7a4b22;border:6px solid #4a2c12;font-size:16px">机（引き出し）🗝️？</div>
+    </div>
+
+    <!-- 3: 西（窓） -->
+    <div class="wall" id="w3" style="background:#6f6553">
+      <div class="floor"></div>
+      <div class="hs" id="window" style="left:30%;top:10%;width:34%;height:42%;background:linear-gradient(#0a1030,#1a2a5a);border:8px solid #3a2a1a;font-size:34px">🌙 窓</div>
+      <div class="hs" id="pot" style="left:12%;top:50%;width:14%;height:30%;background:none;font-size:46px">🏺</div>
+      <div class="hs" id="rug" style="left:38%;top:80%;width:34%;height:16%;background:#8a2a2a;border:3px solid #d8b060;border-radius:6px;z-index:2">ラグ</div>
+    </div>
+
+    <div id="dark"></div>
+    <div id="lock">
+      <div class="box">
+        <div>4桁の暗証番号</div>
+        <div class="digits" id="digits"></div>
+        <button class="btn" id="try">開ける</button>
+        <button class="btn g" id="cancel">やめる</button>
+      </div>
+    </div>
+    <div id="ending">
+      <h2>🎉 脱出成功！</h2>
+      <p>ドアが開き、夜風が頬をなでた。<br>あなたは書斎から無事に脱出した。</p>
+      <p id="stat"></p>
+      <button class="btn" onclick="location.reload()">もう一度遊ぶ</button>
+    </div>
+  </div>
+  <div id="msg"></div>
+  <div id="inv"><span class="lbl">持ち物：</span><span id="slots"></span></div>
+</div>
+
+<script>
+const CODE = [4,7,2,9];
+const $ = id => document.getElementById(id);
+const st = {wall:0, items:[], sel:null, found:{rug:0,book:0,cab:0,paint:0}, drawer:false, rugMoved:false, start:Date.now()};
+const ITEMS = {
+  key:{icon:'🗝️',name:'小さな鍵'},
+  light:{icon:'🔦',name:'懐中電灯'},
+  n4:{icon:'📝',name:'メモ「4」'},
+  n7:{icon:'📖',name:'切れ端「7」'},
+  n2:{icon:'🧾',name:'紙「2」'},
+  n9:{icon:'🖼️',name:'裏書き「9」'}
+};
+
+function say(t){ $('msg').textContent = t; }
+function has(k){ return st.items.includes(k); }
+function give(k){ st.items.push(k); renderInv(); }
+function renderInv(){
+  $('slots').innerHTML = '';
+  st.items.forEach(k=>{
+    const d = document.createElement('div');
+    d.className = 'slot' + (st.sel===k?' sel':'');
+    d.innerHTML = ITEMS[k].icon + '<small>' + ITEMS[k].name + '</small>';
+    d.onclick = () => { st.sel = st.sel===k ? null : k; renderInv(); say(st.sel ? ITEMS[k].name+'を選択中。使いたい場所をタップしよう。' : '選択を解除した。'); };
+    $('slots').appendChild(d);
+  });
+}
+function go(d){
+  st.wall = (st.wall + d + 4) % 4;
+  document.querySelectorAll('.wall').forEach((w,i)=>w.classList.toggle('active', i===st.wall));
+  say(['北側の壁。ドアがある。','東側の壁。本棚と戸棚がある。','南側の壁。古い机と時計がある。','西側の壁。窓と壺、ラグがある。'][st.wall]);
+}
+$('left').onclick = () => go(-1);
+$('right').onclick = () => go(1);
+
+// 北
+$('door').onclick = () => { $('lock').style.display = 'flex'; };
+$('painting').onclick = () => {
+  if(st.found.paint) return say('絵画の裏にはもう何もない。');
+  st.found.paint = 1; give('n9');
+  say('絵画をずらすと、裏に「9」と走り書きがあった！');
+};
+$('plant').onclick = () => say('観葉植物だ。造花のようだ。特に何もない。');
+
+// 東
+$('book').onclick = () => {
+  if(st.found.book) return say('本棚には難しそうな本ばかり。「7」のページは取ってある。');
+  st.found.book = 1; give('n7');
+  say('一冊だけ飛び出した本がある。開くと「7」と書かれたページが挟まっていた。');
+};
+$('cabinet').onclick = () => {
+  if(st.found.cab) return say('戸棚の中はもう空だ。');
+  if(st.sel !== 'light') return say('戸棚の中は真っ暗で何も見えない。明かりがあれば…。');
+  st.found.cab = 1; give('n2');
+  say('懐中電灯で照らすと、奥に貼られた紙に「2」と書かれていた！');
+};
+
+// 南
+$('clock').onclick = () => say('時計は止まっている。ヒントにはならないようだ…。（ただの飾りだ）');
+$('desk').onclick = () => {
+  if(st.drawer) return say('引き出しは空だ。');
+  if(st.sel !== 'key') return say('引き出しには鍵がかかっている。小さな鍵穴だ。');
+  st.drawer = true; st.items = st.items.filter(i=>i!=='key'); st.sel = null;
+  give('light');
+  say('鍵で引き出しが開いた！中に懐中電灯が入っていた。');
+};
+
+// 西
+$('window').onclick = () => say('外は月夜。窓は固く閉ざされていて開かない。');
+$('pot').onclick = () => {
+  if(has('key') || st.drawer) return say('壺の中はもう空だ。');
+  give('key'); say('壺の底に小さな鍵が沈んでいた！');
+};
+$('rug').onclick = () => {
+  if(st.rugMoved) return say('ラグの下には「4」のメモがあった場所だ。');
+  st.rugMoved = true; st.found.rug = 1; give('n4');
+  $('rug').style.transform = 'translateY(30%) scaleY(.5)';
+  say('ラグをめくると、床に「4」と書いたメモが落ちていた！');
+};
+
+// 暗証番号
+let cur = [0,0,0,0];
+function renderDigits(){
+  $('digits').innerHTML = '';
+  cur.forEach((v,i)=>{
+    const d = document.createElement('div'); d.className = 'dg';
+    d.innerHTML = '<button>▲</button><div>'+v+'</div><button>▼</button>';
+    const [up,dn] = d.querySelectorAll('button');
+    up.onclick = () => { cur[i] = (cur[i]+1)%10; renderDigits(); };
+    dn.onclick = () => { cur[i] = (cur[i]+9)%10; renderDigits(); };
+    $('digits').appendChild(d);
+  });
+}
+renderDigits();
+$('cancel').onclick = () => { $('lock').style.display = 'none'; };
+$('try').onclick = () => {
+  if(cur.join('') === CODE.join('')){
+    $('lock').style.display = 'none';
+    const s = Math.round((Date.now()-st.start)/1000);
+    $('stat').textContent = 'クリアタイム：' + Math.floor(s/60) + '分' + (s%60) + '秒';
+    $('ending').style.display = 'flex';
+  } else {
+    say('ガチャッ…開かない。番号が違うようだ。');
+    $('lock').style.display = 'none';
+  }
+};
+
+say('目が覚めると、見知らぬ書斎にいた。ドアは閉まっている…脱出しよう！ ◀ ▶で壁を見回せる。');
+renderInv();
+</script>
+</body>
+</html>
