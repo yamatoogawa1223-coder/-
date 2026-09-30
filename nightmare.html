@@ -16,6 +16,16 @@
   .how b{color:#e55}
   button.go{margin-top:20px;font-size:20px;padding:12px 44px;background:#a11;color:#fff;border:0;border-radius:4px;cursor:pointer;letter-spacing:.2em}
   button.go:hover{background:#c22}
+  .btns{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:18px}
+  .btns .go{margin-top:0;font-size:17px;padding:12px 26px;letter-spacing:.1em}
+  button.alt{background:#333}button.alt:hover{background:#555}
+  .wide{max-width:640px;width:100%;box-sizing:border-box}
+  textarea{width:100%;height:64px;box-sizing:border-box;background:#111;color:#9f9;border:1px solid #444;border-radius:4px;font:11px monospace;resize:none;display:block;margin:4px 0}
+  label{display:block;font-size:13px;color:#ccc;margin-top:8px}
+  button.mini{background:#a11;color:#fff;border:0;border-radius:3px;padding:5px 14px;cursor:pointer;margin:2px 6px 2px 0}
+  #slots{max-height:45vh;overflow:auto;width:100%;max-width:640px}
+  .slot{background:rgba(255,255,255,.05);border:1px solid #333;border-radius:6px;padding:8px 14px;margin-top:10px;text-align:left}
+  .slotH{font-weight:bold}.st{font-weight:normal;font-size:12px;color:#fb3;margin-left:8px}
   #touch{position:fixed;inset:0;pointer-events:none;display:none;z-index:3}
   #act{position:absolute;right:26px;bottom:34px;width:96px;height:96px;border-radius:50%;background:rgba(200,30,30,.35);border:3px solid rgba(255,255,255,.55);color:#fff;font:bold 20px sans-serif;display:flex;align-items:center;justify-content:center;pointer-events:auto}
   #act.on{background:rgba(255,80,80,.6)}
@@ -27,25 +37,51 @@
 
 <div class="ov" id="title">
   <h1>ナイトメア・エスケープ</h1>
-  <p class="sub">非対称対戦ホラー風サバイバル ― あなたは逃走者、相手は殺人鬼</p>
+  <p class="sub">非対称対戦ホラー風サバイバル ― 逃走者となり、殺人鬼から逃げ切れ</p>
   <div class="how">
-    <b>目的：</b>発電機を <b>3台</b> 修理 → 出口ゲートを開けて脱出。<br>
+    <b>目的：</b>発電機を <b>3台</b>（4人以上は4台）修理 → 出口ゲートを開けて脱出。<br>
     <b>移動：</b>WASD / 矢印キー（スマホは画面左をドラッグ）<br>
     <b>行動：</b>Space / E（スマホは「行動」ボタン）<br>
-    ・発電機は長押しで修理。<b>スキルチェック</b>が出たらタイミングよく行動キーを押す（失敗すると爆発音で殺人鬼に居場所がバレる）<br>
-    ・<b>パレット</b>を倒すと近くの殺人鬼を気絶、<b>窓</b>は乗り越えで時間稼ぎ<br>
-    ・<b>ロッカー</b>に隠れる（見失わせてから入らないと見つかる）<br>
-    ・2回攻撃されるとダウン→フックに吊られる。フック中は行動キーで自力脱出に挑戦<br>
-    ・負傷中は安全な場所で長押しして自己治療<br>
-    <b>P</b>：ポーズ　<b>M</b>：音のオン/オフ
+    ・発電機は長押しで修理。<b>スキルチェック</b>が出たらタイミングよく行動キーを押す（失敗すると殺人鬼にバレる）<br>
+    ・<b>パレット</b>で殺人鬼をスタン、<b>窓</b>は乗り越え、<b>ロッカー</b>に隠れる<br>
+    ・2回攻撃されるとフックへ。自力脱出に挑戦、または<b>仲間が長押しで救助</b><br>
+    ・負傷中は安全な場所で長押しして自己治療　／　<b>P</b>：ポーズ（ひとり用）　<b>M</b>：音
   </div>
-  <button class="go" id="start">はじめる</button>
+  <div class="btns">
+    <button class="go" id="solo">ひとりで遊ぶ</button>
+    <button class="go alt" id="mkroom">友達と遊ぶ：部屋をつくる</button>
+    <button class="go alt" id="joinroom">友達の部屋に参加</button>
+  </div>
+</div>
+
+<div class="ov hide" id="hostlobby">
+  <h2>部屋をつくる</h2>
+  <p class="sub" id="hostCount"></p>
+  <div class="how wide">
+    友達ごとに ①招待コードを送る → ②返信コードを貼って「接続」。全員つながったら「ゲーム開始」。<br>
+    <span style="color:#888">※サーバー不要のP2P接続です。全員が同じタイミングでこのページを開いておいてください。</span>
+  </div>
+  <div id="slots"></div>
+  <div class="btns"><button class="go mini2" id="addSlot">＋ 友達を追加</button><button class="go" id="startMulti">ゲーム開始</button><button class="go alt back">もどる</button></div>
+</div>
+
+<div class="ov hide" id="joinlobby">
+  <h2>部屋に参加</h2>
+  <div class="how wide">
+    <label>① ホストから届いた「招待コード」を貼る</label>
+    <textarea id="inviteIn"></textarea>
+    <button class="mini" id="mkReply">返信コードを作る</button>
+    <div id="replyBox" style="display:none"><label>② この「返信コード」をホストに送る</label><textarea id="replyOut" readonly></textarea><button class="mini" id="cpReply">コピー</button></div>
+    <p id="joinStatus" style="color:#ff6;margin:10px 0 0"></p>
+  </div>
+  <div class="btns"><button class="go alt back">もどる</button></div>
 </div>
 
 <div class="ov hide" id="over">
   <h2 id="ovTitle"></h2>
   <p class="sub" id="ovBody"></p>
   <button class="go" id="again">もう一度</button>
+  <p class="sub" id="waitHost" style="display:none">ホストが再開するのを待っています…</p>
 </div>
 
 <div class="ov hide" id="pause"><h2>ポーズ中</h2><p class="sub">P でつづける</p></div>
@@ -55,13 +91,15 @@
 const $ = id => document.getElementById(id);
 const cv = $('game'), ctx = cv.getContext('2d');
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
-const rnd = (a, b) => a + Math.random() * (b - a);
-const pick = a => a[Math.random() * a.length | 0];
+let RNG = Math.random;
+const mulberry = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const rnd = (a, b) => a + RNG() * (b - a);
+const pick = a => a[RNG() * a.length | 0];
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
 // ====== 定数 ======
 const W = 2400, H = 1600, G = 20, GW = W / G, GH = H / G, T = 28;
-const NEED = 3, GEN_T = 50, GATE_T = 10, HEAL_T = 14;
+const GEN_T = 50, GATE_T = 10, HEAL_T = 14;
 const SPD_S = 185, SPD_K = 208;
 const TWO_PI = Math.PI * 2;
 
@@ -168,7 +206,8 @@ function addSide(x, y, len, horiz, type, houseId) {
   else if (type === 'window') wins.push(r);
 }
 
-function genMap() {
+function genMap(seed) {
+  RNG = mulberry(seed);
   walls = []; houses = []; pallets = []; wins = []; gens = []; hooks = []; lockers = []; gates = []; occ = [];
   walls.push({ x: 0, y: 0, w: W, h: 40 }, { x: 0, y: H - 40, w: W, h: 40 }, { x: 0, y: 0, w: 40, h: H }, { x: W - 40, y: 0, w: 40, h: H });
   // ゲート
@@ -180,7 +219,7 @@ function genMap() {
   for (let i = 0; i < 9; i++) {
     const w = rnd(240, 320), h = rnd(200, 260), r = place(w, h, 70, 130);
     if (!r) continue;
-    const types = [pick(['pallet', 'window']), 'door', pick(['pallet', 'window', 'door']), pick(['pallet', 'wall', 'window'])].sort(() => Math.random() - .5);
+    const types = [pick(['pallet', 'window']), 'door', pick(['pallet', 'window', 'door']), pick(['pallet', 'wall', 'window'])].sort(() => RNG() - .5);
     houses.push(r);
     addSide(r.x, r.y, w, true, types[0]);
     addSide(r.x, r.y + h - T, w, true, types[1]);
@@ -208,6 +247,7 @@ function genMap() {
   for (let i = 0; i < 9; i++) { const r = place(24, 34, 16, 120); if (r) lockers.push({ ...r, locker: true, occupied: false }); }
   S = walls.concat(gens, lockers);
   grass = Array.from({ length: 700 }, () => ({ x: rnd(40, W - 40), y: rnd(40, H - 40), s: rnd(3, 8), a: rnd(.3, 1) }));
+  RNG = Math.random;
   buildGrid();
 }
 
@@ -320,183 +360,248 @@ const rdist = (x, y, r) => Math.hypot(x - clamp(x, r.x, r.x + r.w), y - clamp(y,
 const cen = r => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
 
 // ====== ゲーム状態 ======
-let P, K, sc, game = 'title', msgs = [], tAll = 0, beatT = 0, shake = 0, flash = 0, paused = false;
-const cam = { x: 0, y: 0 };
+const COLORS = ['#9bd', '#9d9', '#eb7', '#d9e'];
+const RESCUE_T = 4;
+let NEED = 3, SV = [], ME = null, K = null, sc = null, game = 'title', msgs = [], tAll = 0, beatT = 0, shake = 0, flash = 0, paused = false, evq = [];
+const net = { role: 'solo', id: 0, peers: [], conn: null, snapT: 0, inT: 0, pressed: false };
+const cam = { x: W / 2, y: H / 2 };
+const alive = s => s.state !== 'dead' && s.state !== 'escaped';
+const r1 = v => Math.round(v * 10) / 10;
 
 function toast(t, sec = 2.5) { msgs.push({ t, life: sec }); if (msgs.length > 4) msgs.shift(); }
-
-function newGame() {
-  genMap();
-  let pp;
-  for (let i = 0; i < 200; i++) {
-    pp = { x: rnd(200, W - 200), y: rnd(200, H - 200) };
-    if (!S.some(r => inRect(pp.x, pp.y, r, 30)) && !gates.some(g => rdist(pp.x, pp.y, g) < 200)) break;
-  }
-  P = { x: pp.x, y: pp.y, r: 11, hp: 2, haste: 0, state: 'normal', face: 0, act: null, inter: null, interT: 0, scT: 5, hooks: 0, hookT: 0, hookStage: 0, lockerIn: null, hidden: false, vault: false, hookObj: null, stats: { gens: 0, hooks: 0 } };
-  let kp;
-  for (let i = 0; i < 300; i++) {
-    kp = { x: rnd(200, W - 200), y: rnd(200, H - 200) };
-    if (!S.some(r => inRect(kp.x, kp.y, r, 30)) && dist(kp, P) > 1000) break;
-  }
-  K = { x: kp.x, y: kp.y, r: 13, face: 0, state: 'patrol', path: [], pathT: 0, stun: 0, recover: 2, act: null, lastSeen: null, lostT: 0, wait: 0, tgt: null, hook: null, list: [], stuck: 0, lx: kp.x, ly: kp.y, alert: null };
-  sc = null; msgs = []; tAll = 0; shake = 0; flash = 0;
-  cam.x = P.x; cam.y = P.y;
-  toast('発電機を3台修理して脱出せよ', 4);
-  game = 'play';
+function applyEv(e) {
+  if (e.to !== undefined && e.to !== net.id) return;
+  if (e.m) toast(e.m, e.sec || 2.5);
+  if (e.sfx && sfx[e.sfx]) sfx[e.sfx]();
+  if (e.fx !== undefined && e.fx === net.id) { shake = Math.max(shake, e.sh || 0); flash = Math.max(flash, e.fl || 0); }
 }
+function emit(e) { applyEv(e); if (net.role === 'host') evq.push(e); }
+const say = (m, sec = 2.5, to) => emit({ m, sec, to });
+const snd = n => emit({ sfx: n });
+const fxs = (s, sh, fl) => emit({ fx: s.id, sh, fl });
 
-function gensDone() { return gens.filter(g => g.done).length; }
+function mkSurv(id, x, y) {
+  return { id, x, y, tx: x, ty: y, r: 11, hp: 2, haste: 0, state: 'normal', face: 0, act: null, inter: null, interT: 0, scT: 5, scWait: null, scTimeout: 0,
+    hooks: 0, hookT: 0, hookStage: 0, lockerIn: null, hidden: false, vault: false, hookObj: null, hint: null, rescueProg: 0, rescueTimer: 0,
+    it: null, ip: 0, stats: { gens: 0, hooks: 0 }, in: { mx: 0, my: 0, held: false, pressed: false }, got: false };
+}
+function mkKiller(x, y) {
+  return { x, y, tx: x, ty: y, r: 13, face: 0, state: 'patrol', path: [], pathT: 0, stun: 0, recover: 2, act: null, lastSeen: null, lostT: 0, wait: 0, tgt: null, hook: null, carry: null, target: null, list: [], stuck: 0, lx: x, ly: y, alert: null, vault: false };
+}
+const gensDone = () => gens.filter(g => g.done).length;
+const peerOf = s => net.peers.find(p => p.open && p.sid === s.id);
 
-function endGame(win, why) {
+function setupWorld(seed, n, positions) {
+  genMap(seed);
+  NEED = n >= 3 ? 4 : 3;
+  SV = []; sc = null; msgs = []; evq = []; tAll = 0; shake = 0; flash = 0;
+  if (positions) {
+    positions.forEach((p, i) => SV.push(mkSurv(i, p.x, p.y)));
+    K = mkKiller(positions.kx, positions.ky);
+  } else { for (let i = 0; i < n; i++) SV.push(mkSurv(i, W / 2, H / 2)); K = mkKiller(W / 2, H / 2); }
+}
+function startHost() {
+  audio();
+  const open = net.peers.filter(p => p.open);
+  const n = 1 + open.length, seed = Math.random() * 1e9 | 0;
+  net.role = open.length ? 'host' : 'solo'; net.id = 0;
+  // 先に地形を作って空き地にスポーン
+  genMap(seed);
+  const free = (x, y) => !S.some(r => inRect(x, y, r, 30)) && !gates.some(g => rdist(x, y, g) < 200);
+  const pos = [];
+  for (let i = 0; i < n; i++) {
+    let p;
+    for (let k = 0; k < 400; k++) { p = { x: rnd(200, W - 200), y: rnd(200, H - 200) }; if (free(p.x, p.y) && pos.every(q => dist(p, q) > 140) && (!pos.length || dist(p, pos[0]) < 500 || k > 200)) break; }
+    pos.push(p);
+  }
+  let kp;
+  for (let k = 0; k < 400; k++) { kp = { x: rnd(200, W - 200), y: rnd(200, H - 200) }; if (free(kp.x, kp.y) && pos.every(q => dist(kp, q) > 1000)) break; }
+  pos.kx = kp.x; pos.ky = kp.y;
+  setupWorld(seed, n, pos);
+  open.forEach((p, i) => { p.sid = i + 1; netTo(p, { t: 'init', seed, n, id: p.sid, pos: pos.map(q => ({ x: q.x, y: q.y })), kx: kp.x, ky: kp.y }); });
+  ME = SV[0]; cam.x = ME.x; cam.y = ME.y;
+  say(NEED + '台の発電機を修理して脱出せよ', 4);
+  hideAll(); game = 'play'; paused = false;
+}
+function hideAll() { ['title', 'over', 'hostlobby', 'joinlobby'].forEach(i => $(i).classList.add('hide')); }
+
+// ====== 終了 ======
+function endGameHost() {
   if (game !== 'play') return;
   game = 'over';
-  $('ovTitle').textContent = win ? '脱出成功' : '犠牲者となった…';
+  const esc = SV.filter(s => s.state === 'escaped').length;
+  broadcast({ t: 'end', esc, n: SV.length, tm: Math.round(tAll) });
+  showEnd(esc, SV.length, tAll);
+}
+function showEnd(esc, n, tm) {
+  const win = ME.state === 'escaped';
+  $('ovTitle').textContent = win ? '脱出成功' : (esc ? '犠牲者となった…（仲間は脱出）' : '犠牲者となった…');
   $('ovTitle').style.color = win ? '#6d6' : '#c22';
-  $('ovBody').innerHTML = (why || '') + '<br>生存時間 ' + Math.floor(tAll / 60) + '分' + Math.floor(tAll % 60) + '秒 ／ 修理した発電機 ' + P.stats.gens + '台 ／ フックに吊られた回数 ' + P.stats.hooks + '回';
+  $('ovBody').innerHTML = (n > 1 ? '脱出者 ' + esc + ' / ' + n + '人<br>' : '') + '生存時間 ' + Math.floor(tm / 60) + '分' + Math.floor(tm % 60) + '秒 ／ 修理した発電機 ' + ME.stats.gens + '台 ／ フックに吊られた回数 ' + ME.stats.hooks + '回';
+  $('again').style.display = net.role === 'client' ? 'none' : '';
+  $('waitHost').style.display = net.role === 'client' ? '' : 'none';
   setTimeout(() => $('over').classList.remove('hide'), 900);
 }
 
-// ====== スキルチェック ======
-function startSC(kind) {
-  sc = { kind, st: 'warn', t: .75, ang: 0, zs: rnd(1.7, 5.3), zl: kind === 'unhook' ? .55 : .8 };
-  sfx.warn();
+// ====== スキルチェック（操作する本人の端末で判定） ======
+function newSC(kind, zs, zl) { sfx.warn(); return { kind, st: 'warn', t: .75, ang: 0, zs, zl }; }
+function startSC(s, kind) {
+  s.scWait = kind; s.scTimeout = 5;
+  const zs = rnd(1.7, 5.3), zl = kind === 'unhook' ? .55 : .8;
+  if (s === ME) sc = newSC(kind, zs, zl); else { const p = peerOf(s); if (p) netTo(p, { t: 'sc', kind, zs, zl }); }
 }
-function updateSC(dt) {
+function updateLocalSC(dt) {
   if (!sc) return;
-  if (sc.st === 'warn') { sc.t -= dt; if (sc.t <= 0) sc.st = 'run'; if (actPressed) actPressed = false; return; }
+  if (sc.st === 'res') { sc.fade -= dt; if (sc.fade <= 0) sc = null; return; }
+  if (sc.st === 'warn') { sc.t -= dt; if (sc.t <= 0) sc.st = 'run'; actPressed = false; return; }
   sc.ang += dt * TWO_PI / 1.2;
   if (actPressed) {
     actPressed = false;
-    const ok = sc.ang >= sc.zs && sc.ang <= sc.zs + sc.zl, great = ok && sc.ang < sc.zs + .22;
-    resolveSC(ok, great);
-  } else if (sc.ang > TWO_PI) resolveSC(false, false);
+    const ok = sc.ang >= sc.zs && sc.ang <= sc.zs + sc.zl;
+    finishSC(ok, ok && sc.ang < sc.zs + .22);
+  } else if (sc.ang > TWO_PI) finishSC(false, false);
 }
-function resolveSC(ok, great) {
-  const k = sc.kind; sc.st = 'res'; sc.ok = ok; sc.fade = .5;
+function finishSC(ok, great) {
+  sc.st = 'res'; sc.ok = ok; sc.fade = .5;
   if (ok) sfx.good(); else sfx.bad();
-  if (k === 'gen' && P.inter && P.inter.type === 'gen') {
-    const g = P.inter.obj;
+  if (net.role === 'client') netSend({ t: 'scr', ok, great }); else resolveSC(ME, ok, great);
+}
+function unhookSurv(t) { t.state = 'normal'; t.hp = 1; t.haste = 3; t.y += 34; t.hookObj = null; t.rescueProg = 0; }
+function resolveSC(s, ok, great) {
+  const k = s.scWait; if (!k) return;
+  s.scWait = null;
+  if (k === 'gen' && s.inter && s.inter.type === 'gen') {
+    const g = s.inter.obj;
     if (ok) g.prog = Math.min(GEN_T, g.prog + (great ? 4 : 1.5));
-    else { g.prog = Math.max(0, g.prog - 6); shake = .4; K.alert = { x: g.x + g.w / 2, y: g.y + g.h / 2 }; toast('爆発音！ 殺人鬼に気づかれた', 2.5); }
-  } else if (k === 'unhook') {
-    if (ok) {
-      P.state = 'normal'; P.hp = 1; P.haste = 3; P.y += 34; P.hookObj = null;
-      toast('自力で脱出した！', 2.5);
-    } else { P.hookT -= 8; toast('失敗…時間が縮んだ', 2); }
+    else { g.prog = Math.max(0, g.prog - 6); fxs(s, .4, 0); K.alert = { x: g.x + g.w / 2, y: g.y + g.h / 2 }; say('爆発音！ 殺人鬼に気づかれた', 2.5); }
+  } else if (k === 'unhook' && s.state === 'hooked') {
+    if (ok) { unhookSurv(s); say('自力で脱出した！', 2.5, s.id); }
+    else { s.hookT -= 8; say('失敗…時間が縮んだ', 2, s.id); }
   }
 }
 
-// ====== プレイヤー更新 ======
-function nearestInter() {
+// ====== 逃走者の更新（ホスト側） ======
+function nearestInter(s) {
   let best = null, bd = 1e9;
   const cand = (type, obj, d) => { if (d < bd) { bd = d; best = { type, obj }; } };
-  for (const g of gens) if (!g.done) { const d = rdist(P.x, P.y, g); if (d < 28) cand('gen', g, d); }
-  if (gensDone() >= NEED) for (const g of gates) if (!g.open) { const d = rdist(P.x, P.y, g); if (d < 40) cand('gate', g, d); }
-  for (const p of pallets) if (p.state === 0) { const c = cen(p), d = dist(P, c); if (d < 46) cand('pallet', p, d - 8); }
-  for (const w of wins) { const c = cen(w), d = dist(P, c); if (d < 48) cand('window', w, d); }
-  for (const l of lockers) { const c = cen(l), d = dist(P, c); if (d < 36) cand('locker', l, d - 4); }
-  if (!best && P.hp === 1 && K.state !== 'chase') best = { type: 'heal', obj: null };
+  for (const g of gens) if (!g.done) { const d = rdist(s.x, s.y, g); if (d < 28) cand('gen', g, d); }
+  if (gensDone() >= NEED) for (const g of gates) if (!g.open) { const d = rdist(s.x, s.y, g); if (d < 40) cand('gate', g, d); }
+  for (const p of pallets) if (p.state === 0) { const c = cen(p), d = dist(s, c); if (d < 46) cand('pallet', p, d - 8); }
+  for (const w of wins) { const c = cen(w), d = dist(s, c); if (d < 48) cand('window', w, d); }
+  for (const l of lockers) { const c = cen(l), d = dist(s, c); if (d < 36) cand('locker', l, d - 4); }
+  for (const t of SV) if (t !== s && t.state === 'hooked' && t.hookObj) { const d = dist(s, t.hookObj); if (d < 50) cand('rescue', t, d - 12); }
+  if (!best && s.hp === 1 && K.state !== 'chase') best = { type: 'heal', obj: null };
   return best;
 }
-const HINT = { gen: '発電機を修理', gate: 'ゲートを開ける', pallet: 'パレットを倒す', window: '窓を乗り越える', locker: 'ロッカーに隠れる', heal: '自己治療（長押し）' };
+const HINT = { gen: '発電機を修理', gate: 'ゲートを開ける', pallet: 'パレットを倒す', window: '窓を乗り越える', locker: 'ロッカーに隠れる', heal: '自己治療', rescue: '仲間をフックから助ける' };
+const HOLD = { gen: 1, gate: 1, heal: 1, rescue: 1 };
 
-function updatePlayer(dt) {
-  if (P.haste > 0) P.haste -= dt;
-  if (P.state === 'dead' || P.state === 'escaped') return;
-  if (P.state === 'carried') { P.x = K.x; P.y = K.y; return; }
-  if (P.state === 'hooked') {
-    const h = P.hookObj; P.x = h.x; P.y = h.y + 18;
-    if (!sc && actPressed && P.hookStage === 1) { actPressed = false; startSC('unhook'); }
-    P.hookT -= dt;
-    if (P.hookT <= 0) {
-      if (P.hookStage === 1) { P.hookStage = 2; P.hookT = 30; toast('エンティティが迫っている…', 3); sfx.hook(); }
-      else { P.state = 'dead'; endGame(false, 'エンティティに生贄として捧げられた'); }
-    }
-    return;
-  }
-  if (P.act) {
-    const a = P.act; a.t -= dt;
-    P.x += (a.tx - P.x) * Math.min(1, dt * 7); P.y += (a.ty - P.y) * Math.min(1, dt * 7);
-    if (a.t <= 0) { P.x = a.tx; P.y = a.ty; P.vault = false; P.act = null; collide(P); }
-    return;
-  }
-  const m = moveInput(), moving = m.x !== 0 || m.y !== 0;
-  if (P.hidden) {
-    if (actPressed) {
-      actPressed = false; const l = P.lockerIn, c = cen(l);
-      P.hidden = false; P.state = 'normal'; P.x = c.x; P.y = l.y + l.h + P.r + 3; l.occupied = false; P.lockerIn = null;
-    }
-    return;
-  }
-  // 行動
-  const it = nearestInter();
-  P.hint = it && !sc ? it.type : null;
-  if (sc) { /* スキルチェック中は停止 */ }
-  else if (it && (it.type === 'pallet' || it.type === 'window' || it.type === 'locker')) {
-    P.inter = null;
-    if (actPressed) { actPressed = false; doInstant(it); if (P.act || P.hidden) return; }
-  } else if (it && actHeld && !moving) {
-    if (!P.inter || P.inter.type !== it.type || P.inter.obj !== it.obj) { P.inter = it; P.interT = 0; P.scT = rnd(3, 6); }
-    holdInter(it, dt);
-  } else P.inter = null;
-  if (!sc && P.inter && (moving || !actHeld)) P.inter = null;
-  // 移動
-  if (!P.inter) {
-    const spd = SPD_S * (P.haste > 0 ? 1.4 : 1);
-    P.x += m.x * spd * dt; P.y += m.y * spd * dt;
-    if (moving) P.face = Math.atan2(m.y, m.x);
-    collide(P);
-  }
-  // ゲート脱出
-  for (const g of gates) if (g.open && rdist(P.x, P.y, g) < 26) { P.state = 'escaped'; endGame(true, '出口ゲートから脱出した'); }
+function interProg(s) {
+  const o = s.inter; if (!o) return 0;
+  return o.type === 'gen' ? o.obj.prog / GEN_T : o.type === 'gate' ? o.obj.prog / GATE_T : o.type === 'heal' ? s.interT / HEAL_T : o.type === 'rescue' ? o.obj.rescueProg / RESCUE_T : 0;
 }
 
-function doInstant(it) {
+function updateSurv(s, dt) {
+  const inp = s.in;
+  if (s.haste > 0) s.haste -= dt;
+  if (!alive(s)) return;
+  if (s.scWait) { s.scTimeout -= dt; if (s.scTimeout <= 0) resolveSC(s, false, false); }
+  if (s.state === 'carried') { s.x = K.x; s.y = K.y; s.inter = null; return; }
+  if (s.state === 'hooked') {
+    const h = s.hookObj; s.x = h.x; s.y = h.y + 18; s.inter = null;
+    if (s.rescueTimer > 0) s.rescueTimer -= dt; else s.rescueProg = Math.max(0, s.rescueProg - dt * 2);
+    if (inp.pressed && s.hookStage === 1 && !s.scWait) { inp.pressed = false; startSC(s, 'unhook'); }
+    s.hookT -= dt;
+    if (s.hookT <= 0) {
+      if (s.hookStage === 1) { s.hookStage = 2; s.hookT = 30; say('エンティティが迫っている…', 3, s.id); snd('hook'); }
+      else { s.state = 'dead'; s.scWait = null; say('逃走者' + (s.id + 1) + 'が生贄となった', 3); }
+    }
+    return;
+  }
+  if (s.act) {
+    const a = s.act; a.t -= dt;
+    s.x += (a.tx - s.x) * Math.min(1, dt * 7); s.y += (a.ty - s.y) * Math.min(1, dt * 7);
+    if (a.t <= 0) { s.x = a.tx; s.y = a.ty; s.vault = false; s.act = null; collide(s); }
+    return;
+  }
+  const moving = inp.mx !== 0 || inp.my !== 0;
+  if (s.hidden) {
+    if (inp.pressed) {
+      inp.pressed = false; const l = s.lockerIn, c = cen(l);
+      s.hidden = false; s.state = 'normal'; s.x = c.x; s.y = l.y + l.h + s.r + 3; l.occupied = false; s.lockerIn = null;
+    }
+    return;
+  }
+  const it = nearestInter(s);
+  s.hint = it ? it.type : null;
+  if (s.scWait) { /* スキルチェック中は停止 */ }
+  else if (it && !HOLD[it.type]) {
+    s.inter = null;
+    if (inp.pressed) { inp.pressed = false; doInstant(s, it); if (s.act || s.hidden) return; }
+  } else if (it && inp.held && !moving) {
+    if (!s.inter || s.inter.type !== it.type || s.inter.obj !== it.obj) { s.inter = it; s.interT = 0; s.scT = rnd(3, 6); }
+    holdInter(s, it, dt);
+  } else s.inter = null;
+  if (!s.scWait && s.inter && (moving || !inp.held)) s.inter = null;
+  if (!s.inter && !s.scWait) {
+    const spd = SPD_S * (s.haste > 0 ? 1.4 : 1);
+    s.x += inp.mx * spd * dt; s.y += inp.my * spd * dt;
+    if (moving) s.face = Math.atan2(inp.my, inp.mx);
+    collide(s);
+  }
+  for (const g of gates) if (g.open && rdist(s.x, s.y, g) < 26) { s.state = 'escaped'; s.inter = null; say('逃走者' + (s.id + 1) + 'が脱出した！', 3); }
+}
+
+function doInstant(s, it) {
   if (it.type === 'pallet') {
-    const p = it.obj; p.state = 1; setGapCost(p, 14); sfx.pallet();
+    const p = it.obj; p.state = 1; setGapCost(p, 14); snd('pallet');
     const c = cen(p);
-    if (dist(K, c) < 85 && K.state !== 'carry') { K.stun = 2.6; K.act = null; K.path = []; sfx.stun(); toast('殺人鬼をスタンさせた！', 2); shake = .3; }
-    collide(P);
+    if (dist(K, c) < 85 && K.state !== 'carry') { K.stun = 2.6; K.act = null; K.path = []; snd('stun'); say('殺人鬼をスタンさせた！', 2); fxs(s, .3, 0); }
+    collide(s);
   } else if (it.type === 'window') {
-    const w = it.obj, c = cen(w), horiz = w.w > w.h, off = T / 2 + P.r + 4;
+    const w = it.obj, c = cen(w), horiz = w.w > w.h, off = T / 2 + s.r + 4;
     let tx = c.x, ty = c.y;
-    if (horiz) ty += (P.y < c.y ? 1 : -1) * off; else tx += (P.x < c.x ? 1 : -1) * off;
-    P.vault = true; P.act = { t: .55, tx, ty };
+    if (horiz) ty += (s.y < c.y ? 1 : -1) * off; else tx += (s.x < c.x ? 1 : -1) * off;
+    s.vault = true; s.act = { t: .55, tx, ty };
   } else if (it.type === 'locker') {
     const l = it.obj;
     if (l.occupied) return;
     const c = cen(l);
-    P.hidden = true; P.state = 'hidden'; P.lockerIn = l; l.occupied = true; P.x = c.x; P.y = c.y;
+    s.hidden = true; s.state = 'hidden'; s.lockerIn = l; l.occupied = true; s.x = c.x; s.y = c.y;
   }
 }
-function holdInter(it, dt) {
+function holdInter(s, it, dt) {
   if (it.type === 'gen') {
-    const g = it.obj; g.prog += dt; sfx._g = (sfx._g || 0) - dt; if (sfx._g <= 0) { sfx.gen(); sfx._g = .18; }
-    P.scT -= dt; if (P.scT <= 0 && !sc) { startSC('gen'); P.scT = rnd(4, 8); }
+    const g = it.obj; g.prog += dt;
+    s.scT -= dt; if (s.scT <= 0 && !s.scWait) { startSC(s, 'gen'); s.scT = rnd(4, 8); }
     if (g.prog >= GEN_T) {
-      g.done = true; P.inter = null; P.stats.gens++; sfx.done();
+      g.done = true; s.stats.gens++; snd('done');
+      for (const t of SV) if (t.inter && t.inter.obj === g) t.inter = null;
       const n = gensDone();
-      if (n >= NEED) { toast('全ての発電機が完了！ 出口ゲートを開けろ', 4); sfx.door(); } else toast('発電機 ' + n + '/' + NEED + ' 完了', 2.5);
+      if (n >= NEED) { say('全ての発電機が完了！ 出口ゲートを開けろ', 4); snd('door'); } else say('発電機 ' + n + '/' + NEED + ' 完了', 2.5);
     }
   } else if (it.type === 'gate') {
     const g = it.obj; g.prog += dt;
-    if (g.prog >= GATE_T) { g.open = true; P.inter = null; sfx.door(); toast('ゲートが開いた！ 走れ！', 3); }
+    if (g.prog >= GATE_T) { g.open = true; snd('door'); say('ゲートが開いた！ 走れ！', 3); for (const t of SV) if (t.inter && t.inter.obj === g) t.inter = null; }
   } else if (it.type === 'heal') {
-    P.interT += dt;
-    if (P.interT >= HEAL_T) { P.hp = 2; P.inter = null; toast('治療完了', 2); }
+    s.interT += dt;
+    if (s.interT >= HEAL_T) { s.hp = 2; s.inter = null; say('治療完了', 2, s.id); }
+  } else if (it.type === 'rescue') {
+    const t = it.obj; t.rescueProg += dt; t.rescueTimer = .2;
+    if (t.rescueProg >= RESCUE_T) { unhookSurv(t); s.inter = null; say('逃走者' + (t.id + 1) + 'を救出した！', 2.5); }
   }
 }
 
 // ====== 殺人鬼AI ======
-function kSee() {
-  if (P.hidden || P.state !== 'normal') return false;
-  const d = dist(K, P);
-  if (d < 90) return los(K, P) || d < 40;
-  if (K.state === 'chase') return d < 760 && los(K, P);
+function kVis(s) {
+  if (s.state !== 'normal') return false;
+  const d = dist(K, s);
+  if (d < 90) return los(K, s) || d < 40;
+  if (K.state === 'chase') return d < 760 && los(K, s);
   if (d > 640) return false;
-  let da = Math.atan2(P.y - K.y, P.x - K.x) - K.face;
+  let da = Math.atan2(s.y - K.y, s.x - K.x) - K.face;
   da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da)));
-  return da < 1.0 && los(K, P);
+  return da < 1.0 && los(K, s);
 }
 function kGoto(x, y, dt, spd, every = .35) {
   K.pathT -= dt;
@@ -504,12 +609,11 @@ function kGoto(x, y, dt, spd, every = .35) {
   while (K.path.length && Math.hypot(K.path[0].x - K.x, K.path[0].y - K.y) < 9) K.path.shift();
   if (!K.path.length) return true;
   const p = K.path[0], a = Math.atan2(p.y - K.y, p.x - K.x);
-  let da = Math.atan2(Math.sin(a - K.face), Math.cos(a - K.face));
+  const da = Math.atan2(Math.sin(a - K.face), Math.cos(a - K.face));
   K.face += clamp(da, -9 * dt, 9 * dt);
-  // 窓・倒れたパレットを検知
   const px = K.x + Math.cos(a) * (K.r + 6), py = K.y + Math.sin(a) * (K.r + 6);
-  for (const w of wins) if (inRect(px, py, w, 3)) { startKAct('vault', w, a); return false; }
-  for (const pl of pallets) if (pl.state === 1 && inRect(px, py, pl, 3)) { startKAct('break', pl, a); return false; }
+  for (const w of wins) if (inRect(px, py, w, 3)) { startKAct('vault', w); return false; }
+  for (const pl of pallets) if (pl.state === 1 && inRect(px, py, pl, 3)) { startKAct('break', pl); return false; }
   K.x += Math.cos(a) * spd * dt; K.y += Math.sin(a) * spd * dt;
   collide(K);
   K.stuck += dt;
@@ -517,7 +621,7 @@ function kGoto(x, y, dt, spd, every = .35) {
   else if (K.stuck > 1.2) { K.path = []; K.pathT = 0; K.stuck = 0; }
   return Math.hypot(x - K.x, y - K.y) < 26;
 }
-function startKAct(type, obj, a) {
+function startKAct(type, obj) {
   const c = cen(obj), horiz = obj.w > obj.h, off = T / 2 + K.r + 4;
   let tx = c.x, ty = c.y;
   if (horiz) ty += (K.y < c.y ? 1 : -1) * off; else tx += (K.x < c.x ? 1 : -1) * off;
@@ -529,59 +633,62 @@ function kAct(dt) {
   if (a.type === 'vault') { K.x += (a.tx - K.x) * Math.min(1, dt * 5); K.y += (a.ty - K.y) * Math.min(1, dt * 5); K.vault = true; }
   if (a.t <= 0) {
     if (a.type === 'vault') { K.x = a.tx; K.y = a.ty; K.vault = false; }
-    else { a.obj.state = 2; setGapCost(a.obj, -14); toast('パレットが破壊された', 1.6); sfx.pallet(); }
+    else { a.obj.state = 2; setGapCost(a.obj, -14); say('パレットが破壊された', 1.6); snd('pallet'); }
     K.act = null; K.path = []; K.pathT = 0; collide(K);
   }
 }
 function pickGen() {
   const open = gens.filter(g => !g.done);
-  if (open.length) {
-    open.sort((a, b) => b.prog - a.prog);
-    return Math.random() < .55 ? open[0] : pick(open);
-  }
+  if (open.length) { open.sort((a, b) => b.prog - a.prog); return Math.random() < .55 ? open[0] : pick(open); }
   return pick(gates);
 }
 function hookPlayer() {
-  const h = K.hook;
-  P.state = 'hooked'; P.hookObj = h; P.hooks++; P.stats.hooks++;
-  if (P.hooks === 1) { P.hookStage = 1; P.hookT = 40; }
-  else if (P.hooks === 2) { P.hookStage = 2; P.hookT = 30; }
-  else { P.hookStage = 2; P.hookT = .2; }
-  sfx.hook(); shake = .6; flash = .6;
-  toast(P.hookStage === 1 ? 'フックに吊られた！ 行動キーで自力脱出に挑戦' : '危険！ もう自力では外れられない', 4);
+  const s = K.carry, h = K.hook;
+  K.carry = null;
+  if (!s || s.state !== 'carried') { K.state = 'patrol'; return; }
+  s.state = 'hooked'; s.hookObj = h; s.hooks++; s.stats.hooks++; s.rescueProg = 0;
+  if (s.hooks === 1) { s.hookStage = 1; s.hookT = 40; }
+  else if (s.hooks === 2) { s.hookStage = 2; s.hookT = 30; }
+  else { s.hookStage = 2; s.hookT = .2; }
+  snd('hook'); fxs(s, .6, .6);
+  say(s.hookStage === 1 ? 'フックに吊られた！ 行動キーで自力脱出に挑戦' : '危険！ もう自力では外れられない', 4, s.id);
+  if (net.peers.length || SV.length > 1) say('逃走者' + (s.id + 1) + 'がフックに吊られた！ 助けに行け', 3);
   K.state = 'patrol'; K.path = []; K.recover = 1.8; K.tgt = null; K.hook = null;
 }
-function catchPlayer() {
-  P.state = 'carried'; P.hidden = false; if (P.lockerIn) { P.lockerIn.occupied = false; P.lockerIn = null; }
-  P.inter = null; sc = null; P.hp = 0;
+function catchPlayer(s) {
+  s.state = 'carried'; s.hidden = false; if (s.lockerIn) { s.lockerIn.occupied = false; s.lockerIn = null; }
+  s.inter = null; s.scWait = null; s.hp = 0;
   let b = null, bd = 1e9;
   for (const h of hooks) { const d = dist(h, K); if (d < bd) { bd = d; b = h; } }
-  K.hook = b; K.state = 'carry'; K.path = []; K.recover = .7; sfx.hit(); shake = .6; flash = .8;
-  toast('捕まった！', 2.5);
+  K.hook = b; K.carry = s; K.state = 'carry'; K.path = []; K.recover = .7; snd('hit'); fxs(s, .6, .8);
+  say('捕まった！', 2.5, s.id);
 }
 
 function updateKiller(dt) {
   if (K.stun > 0) { K.stun -= dt; return; }
   if (K.act) { kAct(dt); return; }
   if (K.recover > 0) { K.recover -= dt; return; }
-  const see = kSee(), d = dist(K, P);
   if (K.state === 'carry') {
+    if (!K.carry || K.carry.state !== 'carried') { K.state = 'patrol'; K.carry = null; return; }
     if (kGoto(K.hook.x, K.hook.y, dt, SPD_K * .92, .5)) hookPlayer();
     return;
   }
-  if (see && K.state !== 'chase') { K.state = 'chase'; K.lostT = 0; K.path = []; toast('殺人鬼に発見された！', 2); }
+  let best = null, bd = 1e9;
+  for (const s of SV) if (alive(s) && kVis(s)) { const d = dist(K, s); if (d < bd) { bd = d; best = s; } }
+  if (best && K.state !== 'chase') { K.state = 'chase'; K.lostT = 0; K.path = []; K.target = best; say('殺人鬼に発見された！', 2, best.id); }
   if (K.state === 'chase') {
-    if (see) { K.lostT = 0; K.lastSeen = { x: P.x, y: P.y }; } else K.lostT += dt;
-    if (K.lostT > 3.5 || P.state !== 'normal') {
-      K.state = 'search'; K.path = []; K.wait = 0; K.lastSeen = K.lastSeen || { x: P.x, y: P.y };
+    if (best) { if (!K.target || !kVis(K.target)) K.target = best; K.lostT = 0; K.lastSeen = { x: K.target.x, y: K.target.y }; } else K.lostT += dt;
+    const T_ = K.target, seen = T_ && kVis(T_);
+    if (K.lostT > 3.5 || !T_ || T_.state !== 'normal') {
+      K.state = 'search'; K.path = []; K.wait = 0; K.target = null; K.lastSeen = K.lastSeen || { x: K.x, y: K.y };
     } else {
-      const tx = see ? P.x : K.lastSeen.x, ty = see ? P.y : K.lastSeen.y;
-      if (see && d < 34) {
-        if (P.hp === 2) { P.hp = 1; P.haste = 2; K.recover = 1.4; sfx.hit(); shake = .5; flash = .7; toast('負傷した！ 走れ！', 2); }
-        else catchPlayer();
+      const tx = seen ? T_.x : K.lastSeen.x, ty = seen ? T_.y : K.lastSeen.y, d = dist(K, T_);
+      if (seen && d < 34) {
+        if (T_.hp === 2) { T_.hp = 1; T_.haste = 2; K.recover = 1.4; snd('hit'); fxs(T_, .5, .7); say('負傷した！ 走れ！', 2, T_.id); }
+        else catchPlayer(T_);
         return;
       }
-      kGoto(tx, ty, dt, SPD_K * (d < 70 && see ? 1.08 : 1), .25);
+      kGoto(tx, ty, dt, SPD_K * (d < 70 && seen ? 1.08 : 1), .25);
       return;
     }
   }
@@ -601,11 +708,10 @@ function updateKiller(dt) {
     const l = K.list[0], c = cen(l), fy = l.y + l.h + 14;
     if (kGoto(c.x, fy, dt, SPD_K * .9)) {
       K.list.shift(); K.face = -Math.PI / 2; K.recover = .7;
-      if (l.occupied) { catchPlayer(); toast('ロッカーから引きずり出された！', 2.5); }
+      if (l.occupied) { const v = SV.find(s => s.lockerIn === l); if (v) { catchPlayer(v); say('ロッカーから引きずり出された！', 2.5, v.id); } }
     }
     return;
   }
-  // 巡回
   if (!K.tgt) { K.tgt = pickGen(); K.path = []; }
   if (K.tgt.done) K.tgt = null;
   else {
@@ -618,25 +724,176 @@ function updateKiller(dt) {
 }
 
 // ====== メイン更新 ======
-function update(dt) {
-  tAll += dt;
+function localFx(dt) {
   if (shake > 0) shake -= dt; if (flash > 0) flash -= dt;
   for (const m of msgs) m.life -= dt; msgs = msgs.filter(m => m.life > 0);
-  actHeld = !!(keys.Space || keys.KeyE || keys.Enter || touchAct);
-  updateSC(dt);
-  if (sc && sc.st === 'res') { sc.fade -= dt; if (sc.fade <= 0) sc = null; }
-  updatePlayer(dt);
-  if (game === 'play') updateKiller(dt);
-  actPressed = false;
-  // 心音
-  const d = dist(K, P);
-  if (game === 'play' && d < 560 && !P.hidden || (P.hidden && d < 200)) {
+  const d = dist(K, ME);
+  if ((d < 560 && ME.state !== 'hidden' && alive(ME)) || (ME.state === 'hidden' && d < 200)) {
     beatT -= dt;
     if (beatT <= 0) { sfx.beat(); beatT = .4 + d / 560 * .75; }
   }
-  const tx = clamp(P.x, cw / scale / 2, W - cw / scale / 2), ty = clamp(P.y, ch / scale / 2, H - ch / scale / 2);
-  cam.x += (W < cw / scale ? W / 2 : tx - cam.x) * Math.min(1, dt * 8);
-  cam.y += (H < ch / scale ? H / 2 : ty - cam.y) * Math.min(1, dt * 8);
+  const cs = camS(), vw = cw / scale / 2, vh = ch / scale / 2;
+  const tx = clamp(cs.x, vw, W - vw), ty = clamp(cs.y, vh, H - vh);
+  cam.x += (W < vw * 2 ? W / 2 - cam.x : tx - cam.x) * Math.min(1, dt * 8);
+  cam.y += (H < vh * 2 ? H / 2 - cam.y : ty - cam.y) * Math.min(1, dt * 8);
+}
+function camS() { return alive(ME) ? ME : (SV.find(alive) || ME); }
+
+function updateHost(dt) {
+  tAll += dt;
+  actHeld = !!(keys.Space || keys.KeyE || keys.Enter || touchAct);
+  updateLocalSC(dt);
+  const s0 = SV[0], m = moveInput();
+  s0.in.mx = m.x; s0.in.my = m.y; s0.in.held = actHeld; if (actPressed) s0.in.pressed = true;
+  actPressed = false;
+  for (const s of SV) updateSurv(s, dt);
+  updateKiller(dt);
+  for (const s of SV) s.in.pressed = false;
+  if (SV.every(s => !alive(s))) endGameHost();
+  net.snapT -= dt;
+  if (net.snapT <= 0) { net.snapT = .05; if (net.peers.some(p => p.open)) broadcast(buildSnap()); else evq = []; }
+  localFx(dt);
+}
+function updateClient(dt) {
+  tAll += dt;
+  actHeld = !!(keys.Space || keys.KeyE || keys.Enter || touchAct);
+  updateLocalSC(dt);
+  if (actPressed) { net.pressed = true; actPressed = false; }
+  net.inT -= dt;
+  if (net.inT <= 0) {
+    net.inT = .033; const m = moveInput();
+    netSend({ t: 'in', mx: Math.round(m.x * 100) / 100, my: Math.round(m.y * 100) / 100, h: actHeld ? 1 : 0, p: net.pressed ? 1 : 0 });
+    net.pressed = false;
+  }
+  const k = Math.min(1, dt * 14);
+  for (const s of SV) { s.x += (s.tx - s.x) * k; s.y += (s.ty - s.y) * k; }
+  K.x += (K.tx - K.x) * k; K.y += (K.ty - K.y) * k;
+  localFx(dt);
+}
+
+// ====== 通信（WebRTC P2P・サーバー不要） ======
+const ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+const enc = d => btoa(unescape(encodeURIComponent(JSON.stringify(d))));
+const dec = s => JSON.parse(decodeURIComponent(escape(atob(s.replace(/\s+/g, '')))));
+function waitIce(pc) {
+  return new Promise(res => {
+    if (pc.iceGatheringState === 'complete') return res();
+    pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') res(); });
+    setTimeout(res, 5000);
+  });
+}
+function netTo(p, msg) { try { if (p.dc && p.dc.readyState === 'open') p.dc.send(JSON.stringify(msg)); } catch (e) {} }
+function broadcast(msg) { const j = JSON.stringify(msg); for (const p of net.peers) { try { if (p.open && p.dc.readyState === 'open') p.dc.send(j); } catch (e) {} } }
+function netSend(msg) { const c = net.conn; try { if (c && c.dc && c.dc.readyState === 'open') c.dc.send(JSON.stringify(msg)); } catch (e) {} }
+
+function buildSnap() {
+  const snap = {
+    t: 'snap',
+    s: SV.map(s => ({ x: r1(s.x), y: r1(s.y), f: r1(s.face), hp: s.hp, st: s.state, hs: s.haste > 0 ? 1 : 0, ht: r1(s.hookT), hg: s.hookStage, ho: s.hookObj ? hooks.indexOf(s.hookObj) : -1, it: s.inter ? s.inter.type : null, ip: Math.round(interProg(s) * 1000) / 1000, sg: s.stats.gens, sh: s.stats.hooks })),
+    k: { x: r1(K.x), y: r1(K.y), f: r1(K.face), st: K.state, su: K.stun > 0 ? 1 : 0, rc: K.recover > 0 ? 1 : 0, cr: K.carry ? K.carry.id : -1 },
+    g: gens.map(g => [r1(g.prog), g.done ? 1 : 0]), gt: gates.map(g => [r1(g.prog), g.open ? 1 : 0]),
+    pl: pallets.map(p => p.state), lk: lockers.map(l => l.occupied ? 1 : 0), ev: evq
+  };
+  evq = [];
+  return snap;
+}
+function applySnap(m) {
+  m.s.forEach((d, i) => {
+    const s = SV[i]; if (!s) return;
+    s.tx = d.x; s.ty = d.y; s.face = d.f; s.hp = d.hp; s.state = d.st; s.hidden = d.st === 'hidden'; s.haste = d.hs; s.hookT = d.ht; s.hookStage = d.hg;
+    s.hookObj = d.ho >= 0 ? hooks[d.ho] : null; s.it = d.it; s.ip = d.ip; s.stats.gens = d.sg; s.stats.hooks = d.sh;
+    if (!s.got) { s.x = d.x; s.y = d.y; s.got = true; if (s === ME) { cam.x = d.x; cam.y = d.y; } }
+  });
+  const k = m.k;
+  K.tx = k.x; K.ty = k.y; K.face = k.f; K.state = k.st; K.stun = k.su; K.recover = k.rc; K.carryId = k.cr;
+  if (!K.got) { K.x = k.x; K.y = k.y; K.got = true; }
+  m.g.forEach((d, i) => { gens[i].prog = d[0]; gens[i].done = !!d[1]; });
+  m.gt.forEach((d, i) => { gates[i].prog = d[0]; gates[i].open = !!d[1]; });
+  m.pl.forEach((d, i) => { pallets[i].state = d; });
+  m.lk.forEach((d, i) => { lockers[i].occupied = !!d; });
+  for (const e of m.ev) applyEv(e);
+}
+
+function onHostMsg(p, m) {
+  const s = SV[p.sid];
+  if (!s || game !== 'play') return;
+  if (m.t === 'in') { s.in.mx = clamp(+m.mx || 0, -1, 1); s.in.my = clamp(+m.my || 0, -1, 1); s.in.held = !!m.h; if (m.p) s.in.pressed = true; }
+  else if (m.t === 'scr') resolveSC(s, !!m.ok, !!m.great);
+}
+function onClientMsg(m) {
+  if (m.t === 'hello') { net.id = m.id; }
+  else if (m.t === 'lobby') { $('joinStatus').textContent = '接続しました（参加者 ' + m.n + '人）。ホストの開始を待っています…'; }
+  else if (m.t === 'init') {
+    net.id = m.id; setupWorld(m.seed, m.n, Object.assign(m.pos, { kx: m.kx, ky: m.ky }));
+    ME = SV[m.id]; hideAll(); game = 'play'; say(NEED + '台の発電機を修理して脱出せよ', 4);
+  }
+  else if (m.t === 'snap' && game === 'play') applySnap(m);
+  else if (m.t === 'sc') { sc = newSC(m.kind, m.zs, m.zl); }
+  else if (m.t === 'end' && game === 'play') { game = 'over'; showEnd(m.esc, m.n, m.tm); }
+}
+
+// ====== ロビーUI ======
+const copyText = (ta, btn) => { ta.select(); try { navigator.clipboard.writeText(ta.value); } catch (e) { document.execCommand('copy'); } btn.textContent = 'コピーした'; setTimeout(() => btn.textContent = 'コピー', 1500); };
+function lobbyCount() { return 1 + net.peers.filter(p => p.open).length; }
+function updateLobby() {
+  $('hostCount').textContent = '参加中：' + lobbyCount() + '人（あなた含む・最大4人）';
+  broadcast({ t: 'lobby', n: lobbyCount() });
+}
+function addSlot() {
+  if (net.peers.length >= 3) return;
+  const box = document.createElement('div'); box.className = 'slot';
+  const idx = net.peers.length + 1;
+  box.innerHTML = '<div class="slotH">友達 ' + idx + ' <span class="st">コード作成中…</span></div>' +
+    '<label>① このコードを友達に送る</label><textarea readonly></textarea><button class="mini cp">コピー</button>' +
+    '<label>② 友達から届いた「返信コード」を貼る</label><textarea class="re"></textarea><button class="mini cn">接続</button>';
+  $('slots').appendChild(box);
+  const [offerTa, replyTa] = box.querySelectorAll('textarea'), st = box.querySelector('.st');
+  const p = { pc: null, dc: null, open: false, sid: null };
+  net.peers.push(p);
+  const pc = p.pc = new RTCPeerConnection(ICE);
+  const dc = p.dc = pc.createDataChannel('g');
+  dc.onopen = () => { p.open = true; st.textContent = '✔ 接続済み'; st.style.color = '#6d6'; updateLobby(); };
+  dc.onmessage = e => { try { onHostMsg(p, JSON.parse(e.data)); } catch (err) {} };
+  const gone = () => {
+    if (!p.open) return; p.open = false; st.textContent = '切断'; st.style.color = '#e55'; updateLobby();
+    if (game === 'play' && p.sid !== null) { const s = SV[p.sid]; if (s && alive(s)) { s.state = 'dead'; if (s.lockerIn) s.lockerIn.occupied = false; say('逃走者' + (s.id + 1) + 'が切断した'); } }
+  };
+  dc.onclose = gone; pc.onconnectionstatechange = () => { if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) gone(); };
+  (async () => {
+    await pc.setLocalDescription(await pc.createOffer()); await waitIce(pc);
+    offerTa.value = enc(pc.localDescription.toJSON()); st.textContent = '返信待ち';
+  })();
+  box.querySelector('.cp').onclick = e => copyText(offerTa, e.target);
+  box.querySelector('.cn').onclick = async () => {
+    try { await pc.setRemoteDescription(dec(replyTa.value)); st.textContent = '接続中…'; }
+    catch (err) { st.textContent = 'コードが正しくありません'; st.style.color = '#e55'; }
+  };
+  if (net.peers.length >= 3) $('addSlot').style.display = 'none';
+}
+function openHostLobby() {
+  audio(); $('title').classList.add('hide'); $('hostlobby').classList.remove('hide');
+  if (!net.peers.length) addSlot();
+  updateLobby();
+}
+async function makeReply() {
+  const st = $('joinStatus');
+  let offer;
+  try { offer = dec($('inviteIn').value); } catch (e) { st.textContent = '招待コードが正しくありません'; return; }
+  st.textContent = '返信コードを作成中…';
+  const pc = new RTCPeerConnection(ICE);
+  net.role = 'client'; net.conn = { pc, dc: null };
+  pc.ondatachannel = e => {
+    const dc = net.conn.dc = e.channel;
+    dc.onopen = () => { st.textContent = '接続しました。ホストの開始を待っています…'; };
+    dc.onmessage = ev => { try { onClientMsg(JSON.parse(ev.data)); } catch (err) { console.error(err); } };
+    dc.onclose = () => { if (game === 'play') { toast('ホストとの接続が切れました', 6); } st.textContent = '切断されました'; };
+  };
+  try {
+    await pc.setRemoteDescription(offer);
+    await pc.setLocalDescription(await pc.createAnswer()); await waitIce(pc);
+    $('replyOut').value = enc(pc.localDescription.toJSON());
+    $('replyBox').style.display = ''; st.textContent = '② この返信コードをホストに送ってください（送ったら接続を待ちます）';
+  } catch (e) { st.textContent = '失敗しました: ' + e.message; }
 }
 
 // ====== 描画 ======
@@ -649,37 +906,28 @@ function draw() {
   ctx.translate(cw / 2 + sx, ch / 2 + sy); ctx.scale(scale, scale); ctx.translate(-cam.x, -cam.y);
   const vx0 = cam.x - cw / scale / 2 - 50, vx1 = cam.x + cw / scale / 2 + 50, vy0 = cam.y - ch / scale / 2 - 50, vy1 = cam.y + ch / scale / 2 + 50;
   const vis = r => r.x + r.w > vx0 && r.x < vx1 && r.y + r.h > vy0 && r.y < vy1;
-  // 地面
   ctx.fillStyle = '#1a2414'; ctx.fillRect(0, 0, W, H);
   for (const g of grass) { if (g.x < vx0 || g.x > vx1 || g.y < vy0 || g.y > vy1) continue; ctx.fillStyle = `rgba(60,90,40,${g.a * .5})`; ctx.fillRect(g.x, g.y, g.s, g.s * .5); }
-  // 家の床
   for (const h of houses) if (vis(h)) { ctx.fillStyle = '#2b2118'; ctx.fillRect(h.x, h.y, h.w, h.h); ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1; for (let x = h.x; x < h.x + h.w; x += 24) { ctx.beginPath(); ctx.moveTo(x, h.y); ctx.lineTo(x, h.y + h.h); ctx.stroke(); } }
-  // ゲート
   for (const g of gates) if (vis(g)) {
     ctx.fillStyle = g.open ? '#2a5a2a' : '#555'; ctx.fillRect(g.x, g.y, g.w, g.h);
     ctx.fillStyle = g.open ? '#6f6' : '#a22'; ctx.fillRect(g.x + 12, g.y + 8, 16, 10);
     if (g.prog > 0 && !g.open) { ctx.fillStyle = '#000'; ctx.fillRect(g.x - 4, g.y - 12, g.w + 8, 6); ctx.fillStyle = '#ddd'; ctx.fillRect(g.x - 3, g.y - 11, (g.w + 6) * g.prog / GATE_T, 4); }
   }
-  // フック
   for (const h of hooks) if (h.x > vx0 && h.x < vx1 && h.y > vy0 && h.y < vy1) {
     ctx.fillStyle = '#3a0c0c'; ctx.beginPath(); ctx.arc(h.x, h.y + 6, 13, 0, TWO_PI); ctx.fill();
     ctx.strokeStyle = '#b33'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(h.x, h.y - 14); ctx.lineTo(h.x, h.y + 4); ctx.arc(h.x + 5, h.y + 4, 5, Math.PI, 0.4, true); ctx.stroke();
   }
-  // 壁
   for (const r of walls) if (vis(r)) { ctx.fillStyle = r.rock ? '#3a3a3a' : '#15120f'; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.fillStyle = r.rock ? '#555' : '#3a3026'; ctx.fillRect(r.x, r.y, r.w, 4); ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(r.x, r.y + r.h - 3, r.w, 3); }
-  // 窓
   for (const w of wins) if (vis(w)) { ctx.fillStyle = '#15120f'; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.fillStyle = '#7a5a2a'; if (w.w > w.h) ctx.fillRect(w.x + 4, w.y + 9, w.w - 8, 10); else ctx.fillRect(w.x + 9, w.y + 4, 10, w.h - 8); }
-  // パレット
   for (const p of pallets) if (vis(p) && p.state !== 2) {
     const horiz = p.w > p.h;
     ctx.fillStyle = p.state === 0 ? '#6b4a22' : '#4a2c10';
     if (p.state === 0) { if (horiz) ctx.fillRect(p.x + 4, p.y + 9, p.w - 8, 10); else ctx.fillRect(p.x + 9, p.y + 4, 10, p.h - 8); }
     else ctx.fillRect(p.x, p.y, p.w, p.h);
-    ctx.strokeStyle = '#a77'; ctx.lineWidth = 1; if (p.state === 0) { ctx.strokeRect(p.x + 3, p.y + 3, p.w - 6, p.h - 6); }
+    if (p.state === 0) { ctx.strokeStyle = '#a77'; ctx.lineWidth = 1; ctx.strokeRect(p.x + 3, p.y + 3, p.w - 6, p.h - 6); }
   }
-  // ロッカー
   for (const l of lockers) if (vis(l)) { ctx.fillStyle = '#3d4650'; ctx.fillRect(l.x, l.y, l.w, l.h); ctx.fillStyle = '#222a31'; ctx.fillRect(l.x + 3, l.y + 4, l.w - 6, 6); ctx.fillRect(l.x + 3, l.y + 13, l.w - 6, 6); ctx.fillRect(l.x + 3, l.y + 22, l.w - 6, 6); }
-  // 発電機
   for (const g of gens) if (vis(g)) {
     ctx.fillStyle = g.done ? '#2a4a2a' : '#7a4a16'; ctx.fillRect(g.x, g.y, g.w, g.h);
     ctx.fillStyle = '#222'; ctx.fillRect(g.x + 4, g.y + 4, g.w - 8, g.h - 8);
@@ -687,45 +935,46 @@ function draw() {
     if (g.done) { const gl = ctx.createRadialGradient(g.x + g.w / 2, g.y + g.h / 2, 4, g.x + g.w / 2, g.y + g.h / 2, 130); gl.addColorStop(0, 'rgba(255,240,150,.35)'); gl.addColorStop(1, 'rgba(255,240,150,0)'); ctx.fillStyle = gl; ctx.fillRect(g.x - 130, g.y - 130, g.w + 260, g.h + 260); }
     else { ctx.fillStyle = '#000'; ctx.fillRect(g.x - 2, g.y - 12, g.w + 4, 7); ctx.fillStyle = '#fb3'; ctx.fillRect(g.x - 1, g.y - 11, (g.w + 2) * g.prog / GEN_T, 5); }
   }
-  // 殺人鬼
-  if (game !== 'title') {
+  if (game !== 'title' && K && ME) {
     drawKiller();
-    if (P.state !== 'escaped' && !P.hidden && P.state !== 'carried') drawSurvivor();
-    if (P.state === 'carried') drawSurvivor(K.x - 6, K.y - 18);
+    for (const s of SV) {
+      if (s.state === 'escaped' || s.state === 'dead' || s.state === 'hidden') continue;
+      if (s.state === 'carried') drawSurvivor(s, K.x - 6, K.y - 18); else drawSurvivor(s, s.x, s.y);
+    }
   }
   ctx.restore();
 
-  if (game === 'title') return;
-  // 暗闇
-  const px = (P.x - cam.x) * scale + cw / 2, py = (P.y - cam.y) * scale + ch / 2;
+  if (game === 'title' || !ME) return;
+  const cs = camS();
+  const px = (cs.x - cam.x) * scale + cw / 2, py = (cs.y - cam.y) * scale + ch / 2;
   const R = 430 * scale, dk = ctx.createRadialGradient(px, py, R * .12, px, py, R);
   dk.addColorStop(0, 'rgba(0,0,8,0)'); dk.addColorStop(.5, 'rgba(0,0,8,.55)'); dk.addColorStop(1, 'rgba(0,0,6,.95)');
   ctx.fillStyle = dk; ctx.fillRect(0, 0, cw, ch);
-  // 赤い光（殺人鬼の気配）
-  const kd = dist(K, P);
-  if (kd < 650 && kd > 60 && los(P, K)) {
+  const kd = dist(K, cs);
+  if (kd < 650 && kd > 60 && los(cs, K)) {
     const kx = (K.x - cam.x) * scale + cw / 2, ky = (K.y - cam.y) * scale + ch / 2;
     const rg = ctx.createRadialGradient(kx, ky, 2, kx, ky, 70 * scale); rg.addColorStop(0, 'rgba(255,30,30,.55)'); rg.addColorStop(1, 'rgba(255,0,0,0)');
     ctx.fillStyle = rg; ctx.fillRect(kx - 80 * scale, ky - 80 * scale, 160 * scale, 160 * scale);
   }
-  // 恐怖半径のビネット
-  const terror = kd < 560 ? 1 - kd / 560 : 0;
+  const terror = alive(ME) && kd < 560 ? 1 - kd / 560 : 0;
   if (terror > 0 || flash > 0) {
     const vg = ctx.createRadialGradient(cw / 2, ch / 2, Math.min(cw, ch) * .35, cw / 2, ch / 2, Math.max(cw, ch) * .75);
-    vg.addColorStop(0, 'rgba(120,0,0,0)'); vg.addColorStop(1, `rgba(150,0,0,${Math.min(.75, terror * .55 + Math.max(0, flash)) })`);
+    vg.addColorStop(0, 'rgba(120,0,0,0)'); vg.addColorStop(1, `rgba(150,0,0,${Math.min(.75, terror * .55 + Math.max(0, flash))})`);
     ctx.fillStyle = vg; ctx.fillRect(0, 0, cw, ch);
   }
-  if (P.hp === 1 && P.state === 'normal') { ctx.fillStyle = 'rgba(120,0,0,.12)'; ctx.fillRect(0, 0, cw, ch); }
+  if (ME.hp === 1 && ME.state === 'normal') { ctx.fillStyle = 'rgba(120,0,0,.12)'; ctx.fillRect(0, 0, cw, ch); }
   drawHUD();
 }
 
-function drawSurvivor(x = P.x, y = P.y) {
-  ctx.save(); ctx.translate(x, y); ctx.rotate(P.face);
+function drawSurvivor(s, x, y) {
+  ctx.save(); ctx.translate(x, y);
+  if (SV.length > 1) { ctx.fillStyle = COLORS[s.id]; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(s === ME ? 'YOU' : 'P' + (s.id + 1), 0, -20); }
+  ctx.rotate(s.face);
   ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(0, 4, 13, 10, 0, 0, TWO_PI); ctx.fill();
-  ctx.fillStyle = P.hp === 1 ? '#c98' : '#9bd'; ctx.beginPath(); ctx.arc(0, 0, P.r, 0, TWO_PI); ctx.fill();
+  ctx.fillStyle = s.hp === 1 ? '#c98' : COLORS[s.id]; ctx.beginPath(); ctx.arc(0, 0, s.r, 0, TWO_PI); ctx.fill();
   ctx.fillStyle = '#345'; ctx.beginPath(); ctx.arc(2, 0, 7, 0, TWO_PI); ctx.fill();
   ctx.fillStyle = '#fdb'; ctx.fillRect(7, -3, 5, 6);
-  if (P.hp === 1) { ctx.fillStyle = '#a00'; ctx.fillRect(-8, -3, 4, 4); }
+  if (s.hp === 1) { ctx.fillStyle = '#a00'; ctx.fillRect(-8, -3, 4, 4); }
   ctx.restore();
 }
 function drawKiller() {
@@ -740,55 +989,58 @@ function drawKiller() {
   if (K.stun > 0) { ctx.fillStyle = '#ff6'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('★ ★ ★', K.x, K.y - 26); }
 }
 
+const STATE_JP = { normal: '', hidden: '（隠れ中）', hooked: '吊られている', carried: '担がれている', dead: '脱落', escaped: '脱出済み' };
 function drawHUD() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  // 発電機
   ctx.font = 'bold 16px sans-serif'; ctx.fillStyle = '#eee';
   ctx.fillText('発電機 ' + gensDone() + ' / ' + NEED, 18, 30);
   for (let i = 0; i < gens.length; i++) {
     const g = gens[i]; ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.fillRect(18 + i * 34, 40, 28, 7);
     ctx.fillStyle = g.done ? '#6d6' : '#fb3'; ctx.fillRect(18 + i * 34, 40, 28 * g.prog / GEN_T, 7);
   }
-  ctx.font = '13px sans-serif'; ctx.fillStyle = P.hp === 2 ? '#9d9' : '#e77';
-  ctx.fillText(P.state === 'hooked' ? '吊られている' : P.state === 'carried' ? '担がれている' : P.hp === 2 ? '健康' : '負傷', 18, 66);
-  if (gensDone() >= NEED) { ctx.fillStyle = '#ff6'; ctx.fillText('出口ゲートを開けて脱出せよ！', 18, 86); }
-  // ミニマップ
+  ctx.font = '13px sans-serif';
+  let ly = 66;
+  for (const s of SV) {
+    const st = STATE_JP[s.state] || (s.hp === 2 ? '健康' : '負傷');
+    const label = (SV.length > 1 ? 'P' + (s.id + 1) + (s === ME ? '(あなた) ' : ' ') : '') + (s.state === 'normal' ? (s.hp === 2 ? '健康' : '負傷') : st);
+    ctx.fillStyle = COLORS[s.id]; ctx.fillRect(18, ly - 9, 8, 8);
+    ctx.fillStyle = s.state === 'dead' ? '#777' : s.hp === 1 || s.state === 'hooked' ? '#e77' : '#ccc'; ctx.fillText(label, 32, ly); ly += 18;
+  }
+  if (gensDone() >= NEED) { ctx.fillStyle = '#ff6'; ctx.fillText('出口ゲートを開けて脱出せよ！', 18, ly + 4); }
+  if (!alive(ME) && game === 'play') { ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#ccc'; ctx.fillText(ME.state === 'escaped' ? '脱出成功！ 仲間を見守ろう' : '脱落… 仲間を見守ろう', cw / 2, ch - 40); ctx.textAlign = 'left'; }
   const mw = Math.min(170, cw * .28), mh = mw * H / W, mx = cw - mw - 12, my = 12;
   ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(mx, my, mw, mh); ctx.strokeStyle = '#555'; ctx.strokeRect(mx, my, mw, mh);
   ctx.fillStyle = '#333'; for (const r of walls) if (!(r.w >= W || r.h >= H)) ctx.fillRect(mx + r.x / W * mw, my + r.y / H * mh, Math.max(1, r.w / W * mw), Math.max(1, r.h / H * mh));
   for (const g of gens) { ctx.fillStyle = g.done ? '#6d6' : '#fb3'; ctx.fillRect(mx + g.x / W * mw - 2, my + g.y / H * mh - 2, 5, 5); }
   for (const g of gates) { ctx.fillStyle = g.open ? '#6f6' : '#c44'; ctx.fillRect(mx + g.x / W * mw - 1, my + g.y / H * mh, 3, 8); }
-  ctx.fillStyle = '#7cf'; ctx.beginPath(); ctx.arc(mx + P.x / W * mw, my + P.y / H * mh, 3, 0, TWO_PI); ctx.fill();
+  for (const s of SV) if (alive(s)) { ctx.fillStyle = COLORS[s.id]; ctx.beginPath(); ctx.arc(mx + s.x / W * mw, my + s.y / H * mh, s === ME ? 3.5 : 2.5, 0, TWO_PI); ctx.fill(); }
   // ヒント
   let hint = null;
-  if (P.state === 'hooked') hint = P.hookStage === 1 ? '行動キー：自力脱出に挑戦' : '…';
-  else if (P.hidden) hint = '行動キー：ロッカーから出る';
-  else if (P.hint && !sc) hint = (P.inter ? '' : '') + HINT[P.hint] + (P.hint === 'gen' || P.hint === 'gate' || P.hint === 'heal' ? '（長押し・動くと中断）' : '（行動キー）');
+  if (alive(ME) && !sc) {
+    if (ME.state === 'hooked') hint = ME.hookStage === 1 ? '行動キー：自力脱出に挑戦（仲間の救助も待てる）' : '仲間の救助を待て…';
+    else if (ME.state === 'carried') hint = null;
+    else if (ME.hidden) hint = '行動キー：ロッカーから出る';
+    else { const it = nearestInter(ME); if (it) hint = HINT[it.type] + (HOLD[it.type] ? '（長押し・動くと中断）' : '（行動キー）'); }
+  }
   if (hint) { ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,.6)'; const tw = ctx.measureText(hint).width + 24; ctx.fillRect(cw / 2 - tw / 2, ch - 92, tw, 30); ctx.fillStyle = '#fff'; ctx.fillText(hint, cw / 2, ch - 71); }
-  // 進捗バー
-  let pr = null;
-  if (P.inter) { const o = P.inter; pr = o.type === 'gen' ? o.obj.prog / GEN_T : o.type === 'gate' ? o.obj.prog / GATE_T : o.type === 'heal' ? P.interT / HEAL_T : null; }
-  if (pr !== null) { const bw = 220; ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(cw / 2 - bw / 2, ch - 120, bw, 12); ctx.fillStyle = '#fb3'; ctx.fillRect(cw / 2 - bw / 2 + 2, ch - 118, (bw - 4) * pr, 8); }
-  if (P.state === 'hooked') { const bw = 260; ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(cw / 2 - bw / 2, 60, bw, 14); ctx.fillStyle = P.hookStage === 1 ? '#e88' : '#f22'; ctx.fillRect(cw / 2 - bw / 2 + 2, 62, (bw - 4) * clamp(P.hookT / (P.hookStage === 1 ? 40 : 30), 0, 1), 10); }
-  // スキルチェック
+  if (ME.it && ME.ip > 0 && alive(ME)) { const bw = 220; ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(cw / 2 - bw / 2, ch - 120, bw, 12); ctx.fillStyle = '#fb3'; ctx.fillRect(cw / 2 - bw / 2 + 2, ch - 118, (bw - 4) * clamp(ME.ip, 0, 1), 8); }
+  if (ME.state === 'hooked') { const bw = 260; ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(cw / 2 - bw / 2, 60, bw, 14); ctx.fillStyle = ME.hookStage === 1 ? '#e88' : '#f22'; ctx.fillRect(cw / 2 - bw / 2 + 2, 62, (bw - 4) * clamp(ME.hookT / (ME.hookStage === 1 ? 40 : 30), 0, 1), 10); }
   if (sc) {
-    const cx = cw / 2, cy = ch / 2 - 40, R = 54;
+    const cx = cw / 2, cy = ch / 2 - 40, Rr = 54;
     ctx.save(); ctx.translate(cx, cy);
-    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.beginPath(); ctx.arc(0, 0, R + 14, 0, TWO_PI); ctx.fill();
-    ctx.lineWidth = 10; ctx.strokeStyle = '#ddd'; ctx.beginPath(); ctx.arc(0, 0, R, 0, TWO_PI); ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.beginPath(); ctx.arc(0, 0, Rr + 14, 0, TWO_PI); ctx.fill();
+    ctx.lineWidth = 10; ctx.strokeStyle = '#ddd'; ctx.beginPath(); ctx.arc(0, 0, Rr, 0, TWO_PI); ctx.stroke();
     const a0 = sc.zs - Math.PI / 2;
-    ctx.strokeStyle = '#222'; ctx.beginPath(); ctx.arc(0, 0, R, a0, a0 + sc.zl); ctx.stroke();
-    ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, R, a0, a0 + .22); ctx.stroke();
-    if (sc.st !== 'warn') { const a = sc.ang - Math.PI / 2; ctx.strokeStyle = sc.st === 'res' ? (sc.ok ? '#6f6' : '#f44') : '#e22'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(Math.cos(a) * (R - 10), Math.sin(a) * (R - 10)); ctx.lineTo(Math.cos(a) * (R + 10), Math.sin(a) * (R + 10)); ctx.stroke(); }
+    ctx.strokeStyle = '#222'; ctx.beginPath(); ctx.arc(0, 0, Rr, a0, a0 + sc.zl); ctx.stroke();
+    ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, Rr, a0, a0 + .22); ctx.stroke();
+    if (sc.st !== 'warn') { const a = sc.ang - Math.PI / 2; ctx.strokeStyle = sc.st === 'res' ? (sc.ok ? '#6f6' : '#f44') : '#e22'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(Math.cos(a) * (Rr - 10), Math.sin(a) * (Rr - 10)); ctx.lineTo(Math.cos(a) * (Rr + 10), Math.sin(a) * (Rr + 10)); ctx.stroke(); }
     else { ctx.fillStyle = '#f55'; ctx.font = 'bold 26px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('!', 0, 9); }
     ctx.restore();
   }
-  // メッセージ
   ctx.textAlign = 'center'; ctx.font = 'bold 17px sans-serif';
   msgs.forEach((m, i) => { ctx.globalAlpha = Math.min(1, m.life); ctx.fillStyle = '#000'; ctx.fillText(m.t, cw / 2 + 1, 121 + i * 26); ctx.fillStyle = '#f2e6c8'; ctx.fillText(m.t, cw / 2, 120 + i * 26); });
   ctx.globalAlpha = 1;
-  // ジョイスティック
   if (joy) {
     ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(joy.sx, joy.sy, 55, 0, TWO_PI); ctx.stroke();
     ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.beginPath(); ctx.arc(joy.sx + joy.dx * 55, joy.sy + joy.dy * 55, 24, 0, TWO_PI); ctx.fill();
@@ -799,21 +1051,26 @@ function drawHUD() {
 let last = 0;
 function frame(t) {
   const dt = Math.min(.05, (t - last) / 1000 || 0); last = t;
-  if (game === 'play' && !paused) update(dt);
-  else if (game === 'over') { tAll += 0; if (shake > 0) shake -= dt; if (flash > 0) flash -= dt; }
+  if (game === 'play' && !paused) { if (net.role === 'client') updateClient(dt); else updateHost(dt); }
+  else if (game === 'over') { if (shake > 0) shake -= dt; if (flash > 0) flash -= dt; }
   draw();
   requestAnimationFrame(frame);
 }
 function togglePause() {
-  if (game !== 'play') return;
+  if (game !== 'play' || net.role !== 'solo') return;
   paused = !paused; $('pause').classList.toggle('hide', !paused);
 }
-function begin() { audio(); $('title').classList.add('hide'); $('over').classList.add('hide'); paused = false; newGame(); }
-$('start').onclick = begin;
-$('again').onclick = begin;
-genMap();
-cam.x = W / 2; cam.y = H / 2;
-P = { x: W / 2, y: H / 2, hp: 2, state: 'normal' }; K = { x: 0, y: 0, state: 'patrol', recover: 0, stun: 0 };
+function soloStart() { net.peers.forEach(p => { try { p.pc.close(); } catch (e) {} }); net.peers = []; net.role = 'solo'; startHost(); }
+$('solo').onclick = soloStart;
+$('mkroom').onclick = openHostLobby;
+$('joinroom').onclick = () => { audio(); $('title').classList.add('hide'); $('joinlobby').classList.remove('hide'); };
+$('addSlot').onclick = addSlot;
+$('startMulti').onclick = startHost;
+$('mkReply').onclick = makeReply;
+$('cpReply').onclick = e => copyText($('replyOut'), e.target);
+$('again').onclick = () => { $('over').classList.add('hide'); startHost(); };
+document.querySelectorAll('.back').forEach(b => b.onclick = () => location.reload());
+genMap(1);
 requestAnimationFrame(frame);
 </script>
 </body>
